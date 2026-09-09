@@ -2,9 +2,12 @@
 
 不安装 After Effects，也能把 `.aep` / `.aepx` 工程和 `.ffx` 预设降到旧版本。
 
+> **在线版**：https://wss7per-hash.github.io/aep-downgrader/ （GitHub Pages，文件同样不出本机）
+
 | 文件 | 用途 | 需要 Python |
 |---|---|---|
 | **`AEP-Downgrader.html`** | 网页版，双击用浏览器打开，拖文件进去就能用。**推荐** | 不需要 |
+| `index.html` | 与上一行是同一份文件，仅为了 GitHub Pages 入口而存在 | 不需要 |
 | `aep_core.py` | 核心库（解析 / 改写 / 校验），可被其他脚本 import | 需要 |
 | `aep_cli.py` | 命令行工具，适合批量、递归、挂自动化 | 需要 |
 | `test_core.js` | 自检脚本（基础能力），用真实样本验证核心算法 | 需要 Node |

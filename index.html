@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="7V5JZJcBKk3ISAsG2N5wOA">
+<head data-page-node-id="ASkKDmpwaLC6j8mrXh1y6z">
+<meta charset="UTF-8" data-page-node-id="RBNJfGabOHbd1A5WYWUWYb">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="Zgb3Yo8sRlYmfKzUQhiZN0">
+<title>AEP 降级器 · 不装 After Effects 也能降级工程</title>
+<style>
+  :root{
+    --brand:#6C5CE7; --brand-d:#5646D6; --brand-l:#EFEDFF;
+    --sky:#38BDF8;
+    --ink:#23213F; --ink-2:#5A5878; --ink-3:#9492B0;
+    --bg:#F1EFFB; --card:rgba(255,255,255,.86); --line:#E5E2F4;
+    --ok:#0E9F6E; --ok-bg:#E7F7F0;
+    --warn:#D97706; --warn-bg:#FEF3E2;
+    --err:#DC2626; --err-bg:#FEE9E9;
+    --r:20px;
+    --shadow:0 24px 48px -24px rgba(92,78,205,.28), 0 2px 6px rgba(92,78,205,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; padding:34px 20px 70px;
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(1100px 560px at 8% -6%, #E4E0FC 0%, rgba(228,224,252,0) 60%),
+      radial-gradient(900px 500px at 96% 2%, #DFF0FD 0%, rgba(223,240,253,0) 58%),
+      radial-gradient(1000px 620px at 50% 118%, #E9E4FB 0%, rgba(233,228,251,0) 62%),
+      var(--bg);
+    min-height:100vh; overflow-x:hidden; padding:0 18px;
+  }
+  .wrap{max-width:1000px;margin:0 auto;position:relative;z-index:1}
+
+  /* ============ AE 氛围装饰（纯 CSS/SVG，零外部资源） ============ */
+  .deco{position:absolute;pointer-events:none;z-index:0;user-select:none}
+  @keyframes floaty{0%,100%{transform:translateY(0) rotate(var(--rot,0deg))}50%{transform:translateY(-10px) rotate(var(--rot,0deg))}}
+  @keyframes twinkle{0%,100%{opacity:.2;transform:scale(.85) rotate(0deg)}50%{opacity:.9;transform:scale(1.15) rotate(25deg)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  /* 散落的星光点缀 */
+  .spark{position:absolute;color:#8F84EC;font-weight:700;z-index:0;animation:twinkle 4.5s ease-in-out infinite;pointer-events:none}
+  .sp1{left:1.5%;top:66px;font-size:20px}
+  .sp2{left:8%;top:430px;font-size:13px;animation-delay:1.2s;color:#69B8F0}
+  .sp3{right:5%;top:110px;font-size:16px;animation-delay:2.1s}
+  .sp4{right:9%;top:480px;font-size:15px;animation-delay:.6s;color:#B18CF0}
+  .sp5{left:47%;top:26px;font-size:12px;animation-delay:1.8s}
+
+  /* 左侧 AE 工具栏 */
+  .deco-toolbar{
+    left:-80px; top:430px; width:52px; padding:14px 0; border-radius:16px;
+    background:linear-gradient(180deg,rgba(44,41,78,.92),rgba(58,54,104,.86));
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    box-shadow:0 18px 34px -14px rgba(44,41,78,.45);
+    display:flex;flex-direction:column;align-items:center;gap:17px;
+  }
+  .deco-toolbar i{
+    width:22px;height:22px;display:block;opacity:.92;
+  }
+  .deco-toolbar svg{display:block;width:100%;height:100%}
+
+  /* 右侧漂浮文件瓦片 */
+  .deco-tiles{right:-86px; top:470px; display:flex;flex-direction:column;gap:16px}
+  .deco-tiles .tile{
+    width:64px;height:76px;border-radius:14px;position:relative;
+    background:linear-gradient(160deg,rgba(255,255,255,.9),rgba(228,224,252,.65));
+    border:1px solid rgba(255,255,255,.95);
+    box-shadow:0 16px 30px -12px rgba(108,92,231,.35), inset 0 1px 0 rgba(255,255,255,.9);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    display:flex;align-items:flex-end;justify-content:center;padding-bottom:9px;
+    font-size:10.5px;font-weight:700;color:#7A6EE0;letter-spacing:.5px;
+    animation:floaty 7s ease-in-out infinite;
+  }
+  .deco-tiles .tile::before{
+    content:"";position:absolute;top:9px;left:12px;right:12px;height:26px;border-radius:7px;
+    background:linear-gradient(150deg,#A99CF5,#7C6CF0);opacity:.85;
+  }
+  .deco-tiles .tile::after{
+    content:"";position:absolute;top:9px;right:5px;width:10px;height:10px;
+    background:linear-gradient(225deg,rgba(255,255,255,.95) 50%,rgba(154,140,240,.4) 50%);
+    border-radius:0 0 3px 0;
+  }
+  .deco-tiles .tile:nth-child(1){--rot:-7deg;animation-delay:0s}
+  .deco-tiles .tile:nth-child(2){--rot:5deg;animation-delay:1.2s}
+  .deco-tiles .tile:nth-child(3){--rot:-3deg;animation-delay:2.3s}
+  /* 窄视口（1000–1180）：wrap 两侧放不下，改为贴视口边缘悬浮（像 AE 界面里贴边的工具栏） */
+  @media (max-width:1180px) and (min-width:981px){
+    .deco-toolbar{
+      left:calc((100vw - 100%) / -2 + 6px);
+      top:360px; width:44px; padding:11px 0; gap:13px; border-radius:13px;
+      opacity:.94; z-index:3;
+    }
+    .deco-toolbar i{width:18px;height:18px}
+    .deco-tiles{
+      right:calc((100vw - 100%) / -2 + 6px);
+      top:400px; gap:12px; z-index:3;
+    }
+    .deco-tiles .tile{width:52px;height:62px;font-size:9.5px;padding-bottom:7px}
+    .deco-tiles .tile::before{top:7px;left:9px;right:9px;height:21px}
+    .deco-tiles .tile::after{top:7px;right:4px;width:8px;height:8px}
+  }
+  @media (max-width:980px){.deco-toolbar,.deco-tiles{display:none}}
+
+  /* ============ Hero ============ */
+  .hero{display:flex;align-items:flex-start;justify-content:center;gap:12px;margin-bottom:16px}
+  .hero-side{flex:0 0 212px;min-width:0;padding-top:6px;position:relative;z-index:1}
+  .hero-main{flex:1 1 auto;min-width:0;max-width:560px;text-align:center;padding:0 4px}
+  @media (max-width:1120px){
+    .hero{gap:8px}
+    .hero-side{flex-basis:180px}
+    .hero-main{padding:0 2px}
+    .tagline{gap:8px;font-size:9.5px;letter-spacing:2px}
+    .tagline i{width:36px}
+  }
+  @media (max-width:980px){
+    .tagline{letter-spacing:1px;font-size:9px}
+    .tagline i{width:20px}
+  }
+
+  h1{
+    margin:6px 0 12px; font-size:46px; font-weight:800; letter-spacing:-.5px; line-height:1.15;
+    background:linear-gradient(94deg,#7C4DFF 6%,#5B6CFF 52%,#2FA8F5 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 8px 18px rgba(108,92,231,.28));
+  }
+  .sub{color:var(--ink-2);font-size:15.5px;margin:0}
+  .sub b{color:var(--brand);font-weight:650}
+
+  .badges{margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .badge{
+    font-size:12.5px;padding:8px 15px;border-radius:999px;font-weight:600;
+    background:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,1);color:var(--ink-2);
+    box-shadow:0 8px 18px -8px rgba(108,92,231,.28), inset 0 1px 0 #fff;
+    display:inline-flex;align-items:center;gap:7px;
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  }
+  .badge svg{width:14px;height:14px;flex:0 0 auto}
+
+  .tagline{
+    margin-top:22px;display:flex;align-items:center;justify-content:center;gap:14px;
+    font-size:10.5px;letter-spacing:3.5px;color:#A5A0C8;font-weight:600;white-space:nowrap;
+  }
+  .tagline i{display:block;height:1px;width:64px;background:linear-gradient(90deg,rgba(165,160,200,0),#C9C4E8)}
+  .tagline i:last-child{background:linear-gradient(90deg,#C9C4E8,rgba(165,160,200,0))}
+
+  /* 手写批注 */
+  .script-note{
+    font-family:"Segoe Script","Bradley Hand","Xingkai SC","STXingkai","KaiTi","楷体",cursive;
+    color:#6E5BEF;line-height:1.4;font-size:20px;font-weight:700;
+    transform:rotate(-8deg);text-shadow:0 2px 10px rgba(110,91,239,.28);
+  }
+  .sn-top{margin:4px auto 26px;width:max-content;text-align:center;position:relative;z-index:2}
+  .sn-top small{
+    display:block;font-family:"Segoe UI",-apple-system,sans-serif;
+    font-size:8.5px;letter-spacing:3px;color:#ACA5DA;margin-top:7px;font-weight:600;
+  }
+  .sn-en{
+    margin:16px auto 0;width:max-content;font-family:"Segoe Script","Bradley Hand","Xingkai SC","STXingkai","KaiTi",cursive;
+    font-size:15px;color:#9186EE;transform:rotate(-5deg);font-style:italic;font-weight:700;
+  }
+  .sn-r{
+    margin:20px auto 0;width:max-content;text-align:center;transform:rotate(-7deg);
+    color:#9C8DF0;font-size:17px;
+  }
+
+  /* 3D Ae 玻璃磁贴 */
+  .ae-stage{position:relative;width:180px;margin:0 auto;height:158px}
+  .ae-back{
+    position:absolute;left:52px;top:26px;width:96px;height:96px;border-radius:26px;
+    background:linear-gradient(150deg,rgba(255,255,255,.65),rgba(196,188,248,.4));
+    border:1px solid rgba(255,255,255,.9);
+    box-shadow:0 16px 30px -14px rgba(108,92,231,.4);
+    transform:rotate(12deg);
+  }
+  .ae-tile{
+    position:absolute;left:36px;top:12px;width:104px;height:104px;border-radius:27px;
+    background:linear-gradient(150deg,rgba(132,119,246,.95) 0%,rgba(88,76,208,.97) 46%,rgba(48,40,130,1) 100%);
+    border:1px solid rgba(255,255,255,.45);
+    box-shadow:
+      0 28px 52px -16px rgba(60,48,175,.6),
+      inset 0 2px 5px rgba(255,255,255,.55),
+      inset 0 -12px 24px rgba(28,20,92,.5);
+    display:flex;align-items:center;justify-content:center;
+    animation:floaty 6s ease-in-out infinite;--rot:-8deg;transform:rotate(-8deg);
+  }
+  .ae-tile span{
+    font-size:46px;font-weight:800;color:#E6E0FF;letter-spacing:-1px;
+    text-shadow:0 0 20px rgba(196,182,255,.9),0 4px 12px rgba(18,10,70,.6);
+    font-family:"Segoe UI",-apple-system,sans-serif;
+  }
+  .ae-tile::after{ /* 高光斜切 */
+    content:"";position:absolute;inset:0;border-radius:27px;
+    background:linear-gradient(115deg,rgba(255,255,255,.5) 0%,rgba(255,255,255,.1) 34%,rgba(255,255,255,0) 60%);
+  }
+  .cube{
+    position:absolute;border-radius:10px;
+    background:linear-gradient(150deg,rgba(255,255,255,.95),rgba(214,208,248,.7));
+    border:1px solid rgba(255,255,255,.95);
+    box-shadow:0 12px 22px -8px rgba(108,92,231,.35), inset 0 1px 0 #fff;
+    animation:floaty 7.5s ease-in-out infinite;
+  }
+  .cube.c1{width:34px;height:34px;left:0;top:64px;--rot:14deg}
+  .cube.c2{width:22px;height:22px;left:146px;top:16px;--rot:-16deg;animation-delay:1.4s}
+  .cube.c3{width:15px;height:15px;left:152px;top:104px;--rot:22deg;animation-delay:2.6s;opacity:.85}
+  .cube.c4{width:18px;height:18px;left:20px;top:136px;--rot:-9deg;animation-delay:2s;opacity:.9}
+  .plus{position:absolute;color:#8F84EC;font-weight:800;animation:twinkle 4s ease-in-out infinite}
+  .plus.p1{left:4px;top:20px;font-size:15px}
+  .plus.p2{left:158px;top:72px;font-size:12px;animation-delay:1.5s;color:#69B8F0}
+  .micro-caps{
+    margin:14px auto 0;text-align:center;font-size:8.5px;letter-spacing:3px;
+    color:#ACA6D6;font-weight:700;font-family:"Segoe UI",-apple-system,sans-serif;
+  }
+
+  /* 右侧：合成预览窗 */
+  .comp-viewer{
+    position:relative;width:210px;max-width:100%;margin:14px auto 0;
+    animation:floaty 8s ease-in-out infinite;--rot:-2.5deg;transform:rotate(-2.5deg);
+  }
+  .cv-frame{
+    border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,.95);
+    box-shadow:0 22px 44px -18px rgba(92,78,205,.45);
+  }
+  .cv-frame svg{display:block;width:100%;height:auto}
+  .cv-handle{
+    position:absolute;width:9px;height:9px;background:#fff;
+    border:1.5px solid #7C6CF0;border-radius:2px;z-index:2;
+    box-shadow:0 1px 4px rgba(92,78,205,.45);
+  }
+  .cv-handle.h1{left:-5px;top:-5px}
+  .cv-handle.h2{left:50%;margin-left:-5px;top:-5px}
+  .cv-handle.h3{right:-5px;top:-5px}
+  .cv-handle.h4{left:-5px;top:50%;margin-top:-5px}
+  .cv-handle.h5{right:-5px;top:50%;margin-top:-5px}
+  .cv-handle.h6{left:-5px;bottom:-5px}
+  .cv-handle.h7{left:50%;margin-left:-5px;bottom:-5px}
+  .cv-handle.h8{right:-5px;bottom:-5px}
+  .cv-cursor{
+    position:absolute;right:-13px;bottom:-15px;width:22px;height:22px;
+    filter:drop-shadow(0 3px 7px rgba(30,20,90,.45));
+  }
+
+  /* 右侧：图层面板 */
+  .layer-panel{
+    width:212px;max-width:100%;margin:-2px auto 0;border-radius:14px;overflow:hidden;position:relative;z-index:2;
+    background:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.95);
+    box-shadow:0 22px 44px -18px rgba(92,78,205,.35), inset 0 1px 0 #fff;
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    transform:rotate(2deg);
+    animation:floaty 8s ease-in-out infinite;--rot:2deg;animation-delay:1.3s;
+  }
+  .lp-head{
+    display:flex;align-items:center;gap:7px;padding:9px 12px;
+    background:linear-gradient(90deg,rgba(124,109,240,.16),rgba(56,189,248,.10));
+    border-bottom:1px solid rgba(124,109,240,.14);
+    font-size:10.5px;font-weight:700;color:#6C5CE7;letter-spacing:1.5px;
+  }
+  .lp-head i{width:7px;height:7px;border-radius:50%;background:#B4ACF2;display:inline-block}
+  .lp-head .lp-t{margin-left:auto;letter-spacing:0;color:#B0A8DC;font-weight:600;font-size:11px}
+  .lp-row{
+    display:flex;align-items:center;gap:8px;padding:6px 11px;
+    font-size:11px;color:var(--ink-2);border-bottom:1px solid rgba(140,130,200,.08);
+  }
+  .lp-row:last-child{border-bottom:0}
+  .lp-row .ic{width:12px;height:12px;flex:0 0 auto}
+  .lp-row .eye{margin-left:auto;flex:0 0 auto;width:13px;height:10px;opacity:.5}
+  .lp-row.hot{color:#6C5CE7;font-weight:650;background:rgba(124,109,240,.09)}
+  .lp-row.hot .eye{opacity:.9}
+  @media (max-width:880px){.hero-side{display:none}}
+
+  /* ============ 卡片 ============ */
+  .card{
+    background:var(--card);border:1px solid rgba(255,255,255,.95);border-radius:var(--r);
+    padding:26px 26px 24px;margin-bottom:22px;position:relative;
+    box-shadow:var(--shadow), inset 0 1px 0 #fff;
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  }
+  .card-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}
+  .step{
+    width:38px;height:38px;border-radius:12px;flex:0 0 auto;
+    background:linear-gradient(150deg,#9487F8,#6C5CE7);
+    color:#fff;font-size:17px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 10px 20px -8px rgba(108,92,231,.6), inset 0 1.5px 0 rgba(255,255,255,.5);
+  }
+  .card-head .tt{flex:1;min-width:0}
+  .card-head h2{margin:0;font-size:17px;font-weight:750;color:var(--ink);letter-spacing:-.2px}
+  .card-head .st{font-size:12.5px;color:var(--ink-3);margin-top:3px}
+  .card-corner{
+    flex:0 0 auto;text-align:right;padding-top:4px;
+    font-size:9.5px;letter-spacing:2.5px;color:#B7B2D8;font-weight:700;white-space:nowrap;
+  }
+  .card-corner .dots{margin-top:6px;display:flex;gap:4px;justify-content:flex-end}
+  .card-corner .dots i{width:5px;height:5px;border-radius:50%;background:#D4CFF0;display:block}
+  .card-corner .dots i:first-child{background:#8F84EC}
+
+  /* 拖放区 */
+  .drop{
+    position:relative;border:2px dashed #C4BCEE;border-radius:16px;padding:38px 20px 34px;text-align:center;
+    background:linear-gradient(180deg,rgba(250,249,255,.85),rgba(243,241,253,.85));cursor:pointer;transition:.2s;
+    overflow:hidden;
+  }
+  .drop:hover{border-color:var(--brand);background:var(--brand-l)}
+  .drop.over{border-color:var(--brand);background:var(--brand-l);transform:scale(1.006);box-shadow:0 0 0 6px rgba(108,92,231,.12)}
+  .drop .folder{width:96px;height:84px;margin:0 auto;display:block;filter:drop-shadow(0 14px 20px rgba(108,92,231,.35))}
+  .drop .big{font-size:15.5px;font-weight:680;color:var(--ink);margin-top:14px}
+  .drop .sm{font-size:13px;color:var(--ink-3);margin-top:6px}
+  .drop .script-hint{
+    position:absolute;right:26px;bottom:18px;transform:rotate(-9deg);
+    font-family:"Segoe Script","Bradley Hand","Xingkai SC","STXingkai","KaiTi","楷体",cursive;
+    font-size:13px;color:#9C8DF0;opacity:.9;text-align:left;line-height:1.4;pointer-events:none;
+  }
+  .drop .script-hint svg{display:block;margin:0 0 3px 26px}
+  @media (max-width:640px){.drop .script-hint{display:none}}
+
+  .btn{
+    border:0;border-radius:11px;padding:11px 20px;font-size:14px;font-weight:640;
+    background:linear-gradient(135deg,#8A7BF6,#6C5CE7);color:#fff;cursor:pointer;transition:.16s;
+    box-shadow:0 10px 22px -10px rgba(108,92,231,.65), inset 0 1px 0 rgba(255,255,255,.35);
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .btn:hover{background:linear-gradient(135deg,#7A69F2,#5646D6);transform:translateY(-1px);box-shadow:0 14px 26px -10px rgba(108,92,231,.7), inset 0 1px 0 rgba(255,255,255,.35)}
+  .btn:disabled{background:#C9C5E2;cursor:not-allowed;box-shadow:none;transform:none}
+  .btn.ghost{background:rgba(255,255,255,.92);color:var(--ink);border:1px solid var(--line);box-shadow:0 4px 12px -6px rgba(92,78,205,.2)}
+  .btn.ghost:hover{background:#fff;border-color:#CFC9F0;transform:translateY(-1px)}
+  .btn.ghost:disabled{background:rgba(255,255,255,.6);color:#A9A6C6;border-color:var(--line);transform:none;box-shadow:none}
+  .btn.sm{padding:8px 15px;font-size:13px;border-radius:10px}
+  .btn svg{width:15px;height:15px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{
+    text-align:left;font-weight:650;color:var(--ink-3);font-size:11.5px;letter-spacing:.8px;
+    padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  td{padding:10px;border-bottom:1px solid #F0EEFA;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  tbody tr{transition:background .15s}
+  tbody tr:hover{background:rgba(124,109,240,.05)}
+
+  .tag{display:inline-block;font-size:11px;padding:3px 9px;border-radius:7px;font-weight:660}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  .t-err{background:var(--err-bg);color:var(--err)}
+  .t-info{background:var(--brand-l);color:var(--brand)}
+  .t-gray{background:#F1EFFA;color:var(--ink-3)}
+
+  select,input[type=checkbox]{accent-color:var(--brand)}
+  select{
+    padding:10px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px;
+    background:rgba(255,255,255,.95);color:var(--ink);min-width:250px;
+    box-shadow:inset 0 1px 3px rgba(92,78,205,.06);
+  }
+  select:focus{outline:2px solid rgba(108,92,231,.3);border-color:var(--brand)}
+  label.ck{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--ink-2);cursor:pointer}
+
+  .note{
+    background:linear-gradient(160deg,#FFFCF2,#FFF6E8);border:1px solid #F5E2B8;
+    border-radius:14px;padding:15px 17px;font-size:13px;color:#7A5207;line-height:1.75;
+    box-shadow:inset 0 1px 0 #fff;
+  }
+  .note b{color:#5C3D02}
+  .hint{font-size:12.5px;color:var(--ink-3);margin-top:8px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+
+  .hexbox{
+    background:linear-gradient(180deg,#181532,#100E24);color:#CFC9F2;border-radius:13px;padding:15px 17px;
+    overflow-x:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.9;
+    white-space:pre;letter-spacing:.4px;
+    box-shadow:inset 0 2px 10px rgba(0,0,0,.45), 0 10px 24px -14px rgba(50,40,120,.5);
+    border:1px solid rgba(124,109,240,.25);
+  }
+  .hexbox .hi{background:linear-gradient(135deg,#8A7BF6,#6C5CE7);color:#fff;border-radius:3px;padding:1px 2px;font-weight:700;box-shadow:0 0 8px rgba(124,109,240,.8)}
+  .empty{color:var(--ink-3);font-size:13.5px;text-align:center;padding:28px 0}
+  .stat{display:flex;gap:18px;font-size:13px;color:var(--ink-2);flex-wrap:wrap}
+  .stat b{color:var(--ink);font-weight:700}
+
+  footer{text-align:center;color:var(--ink-3);font-size:12px;margin-top:30px;line-height:1.9}
+  details{margin-top:14px}
+  summary{cursor:pointer;font-size:13px;color:var(--brand);font-weight:650;outline:none}
+  .vt{width:100%;font-size:12.5px}
+  .vt td{padding:5px 8px;border-bottom:1px solid #F0EEFA}
+  .name{max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* 卡片 2 的关键帧曲线装饰 */
+  .timeline-deco{position:absolute;right:22px;bottom:12px;width:250px;opacity:.9;pointer-events:none}
+  @media (max-width:820px){.timeline-deco{display:none}}
+</style>
+</head>
+<body data-page-node-id="l0HtAly6HpRa1Gvak9pb7n">
+
+<div class="wrap" data-page-node-id="mJWtORiOtsgIfj8ICniyCE">
+
+<!-- ====== AE 氛围装饰 ====== -->
+<span class="spark sp1" aria-hidden="true">✦</span>
+<span class="spark sp2" aria-hidden="true">✦</span>
+<span class="spark sp3" aria-hidden="true">✦</span>
+<span class="spark sp4" aria-hidden="true">+</span>
+<span class="spark sp5" aria-hidden="true">+</span>
+
+<div class="deco deco-toolbar" aria-hidden="true">
+  <i data-page-node-id="wtrvHzqHknYeirFloadaaf"><svg viewBox="0 0 22 22" fill="none"><path d="M5 3l13 10-6.2 1L14 20l-3.4.8-2.2-5.6L5 18V3z" fill="#CFCAFA"/></svg></i>
+  <i data-page-node-id="jaHhluuMhoYlXA5wQOhNXw"><svg viewBox="0 0 22 22" fill="none"><rect x="4" y="4" width="14" height="14" rx="2" stroke="#CFCAFA" stroke-width="1.8"/></svg></i>
+  <i data-page-node-id="4je7hMJQ9IsJ7SAje6UBzL"><svg viewBox="0 0 22 22" fill="none"><path d="M11 3l8 8-8 8-8-8 8-8z" stroke="#CFCAFA" stroke-width="1.8" stroke-linejoin="round"/></svg></i>
+  <i data-page-node-id="jX9pQ2mRtYwKsLdVbNc4Ea"><svg viewBox="0 0 22 22" fill="none"><path d="M4 18L15 7l3 3L7 21l-4 1 1-4z" stroke="#CFCAFA" stroke-width="1.7" stroke-linejoin="round"/></svg></i>
+  <i data-page-node-id="hPWvCMid3UYyWxsfLpcuTz"><svg viewBox="0 0 22 22" fill="none"><path d="M5 6h12M11 6v11" stroke="#CFCAFA" stroke-width="2" stroke-linecap="round"/></svg></i>
+  <i data-page-node-id="rT76ED3Sz97UeXfpcA7G07"><svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="7" stroke="#CFCAFA" stroke-width="1.8"/></svg></i>
+</div>
+
+<div class="deco deco-tiles" aria-hidden="true">
+  <div class="tile" data-page-node-id="92M5vY5Ai5KvbSz0de9k2P">.AEP</div>
+  <div class="tile" data-page-node-id="0mWzPBFzbNi4539FIlEqSl">.FFX</div>
+  <div class="tile" data-page-node-id="tJ4M6blKTUGDmZBEoRFXgq">.AEPX</div>
+</div>
+
+<!-- ====== Hero ====== -->
+<header class="hero" data-page-node-id="wN3LLS6lTEEkP2C2QpPH5G">
+  <div class="hero-side" data-page-node-id="hfjzAbzoc1NgF9H8QJXBh2">
+    <div class="script-note sn-top" data-page-node-id="H8bGy1aAZN684vRP8EDCpm">让创意<br data-page-node-id="3GehldSHjRNoXlvKiVDTF7">跨越版本限制<small data-page-node-id="UP2s09UxWNKynGLu65klRx">SAME IDEAS · MORE POSSIBILITIES</small></div>
+    <div class="ae-stage" aria-hidden="true" data-page-node-id="ZTpkQWqWGscb1NIehfrVBL">
+      <span class="plus p1">+</span><span class="plus p2">✦</span>
+      <div class="cube c1" data-page-node-id="PgKzORmr9XVfWtikGUHwXj"></div><div class="cube c2" data-page-node-id="UC2s8dF6nTdx0ZtSGJq5UQ"></div><div class="cube c3" data-page-node-id="QCz0IWkNGpUwAnUAvVDIja"></div><div class="cube c4"></div>
+      <div class="ae-back"></div>
+      <div class="ae-tile" data-page-node-id="ol1WVwmWrbHj18ETmzzBF8"><span data-page-node-id="uzNiNi9HCnZFb2fDXjeFdy">Ae</span></div>
+    </div>
+    <div class="micro-caps">PROJECT · DOWNGRADER</div>
+    <div class="sn-en">Create Without Limits</div>
+  </div>
+
+  <div class="hero-main" data-page-node-id="Jtsrjla0cTwFxsIfDCmoiD">
+    <h1 data-page-node-id="fxhFr3JA9ppXQBBsisE4AQ">AEP 降级器</h1>
+    <p class="sub" data-page-node-id="HV9zFfcv3dlmsKh8pXBf0z">不用安装 After Effects，直接把<b data-page-node-id="XzSTHZHWR5tkeYaP2dF8fR">工程 / 预设</b>降到旧版本</p>
+    <div class="badges" data-page-node-id="t3wj198SfCo2JziID7SLSm">
+      <span class="badge" data-page-node-id="VqUmPvWXqg5Ig0PpS1iB0h"><svg viewBox="0 0 24 24" fill="none" data-page-node-id="TLDqyxRXGO9CHmmhsdB804"><path d="M13 2L4.5 13.5H11L9.5 22 19 10h-6.5L13 2z" fill="#7C6CF0" data-page-node-id="WfYfcmsBkkzJxtXObQKAtC"/></svg>纯前端 · 离线可用</span>
+      <span class="badge" data-page-node-id="6vEJazqbSuE6BsnzHUIn8I"><svg viewBox="0 0 24 24" fill="none" data-page-node-id="2RBFcynpZ3t6lCBx0fGFXk"><path d="M12 2l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V5l8-3z" fill="#4AA8F0" data-page-node-id="IgJHaOtQFnC6faJmCMWY7S"/></svg>文件不出本机</span>
+      <span class="badge" data-page-node-id="Ic3sGEs7BSYVCAtobUBZml"><svg viewBox="0 0 24 24" fill="none" data-page-node-id="C16QmtpyFw2BCy2ll6ISSi"><path d="M6 2h9l5 5v15H6V2z" fill="#9C8DF0" data-page-node-id="tuwf9mlCleoEt0sUBs3Gu8"/><path d="M15 2v5h5" fill="#C9C0F8" data-page-node-id="vZzCO3R3UL0E7yDHJsHgHD"/></svg>支持 .aep / .ffx / .aepx</span>
+      <span class="badge" data-page-node-id="tEoPohhy9ceFCJ3GtTsaSC"><svg viewBox="0 0 24 24" fill="none" data-page-node-id="T5DmPkVug9ZfZhQxAw6zjx"><path d="M12 3l9 5-9 5-9-5 9-5z" fill="#6C5CE7" data-page-node-id="z8abxalGWb3SwOuJcjPb3g"/><path d="M3 13l9 5 9-5" stroke="#4AA8F0" stroke-width="2" fill="none" stroke-linejoin="round" data-page-node-id="0TGJtLuUeT3TGJoxOOSXsx"/></svg>批量 + 目录结构保持</span>
+    </div>
+    <div class="tagline" data-page-node-id="uEi8XTfO2zg9TcdA4RvrjY"><i data-page-node-id="cae1XkDd0UCt8Cw3xNHYCA"></i>LOWER VERSION · HIGHER CREATIVITY<i data-page-node-id="6chAOY9iGPZJbys6neoDp0"></i></div>
+  </div>
+
+  <div class="hero-side" data-page-node-id="AbjdpdJ10B2hwiQRIskK6H">
+    <div class="comp-viewer" aria-hidden="true">
+      <div class="cv-frame">
+        <svg viewBox="0 0 210 118" fill="none">
+          <defs>
+            <linearGradient id="cvSky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#AEBDF2"/><stop offset=".5" stop-color="#D5C6F0"/><stop offset="1" stop-color="#F2D8E4"/>
+            </linearGradient>
+            <linearGradient id="cvMB" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#B3A6EA"/><stop offset="1" stop-color="#8F80DC"/>
+            </linearGradient>
+            <linearGradient id="cvMA" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#7A6BD0"/><stop offset="1" stop-color="#5B4CB8"/>
+            </linearGradient>
+          </defs>
+          <rect width="210" height="118" fill="url(#cvSky)"/>
+          <circle cx="152" cy="34" r="14" fill="#FFE9C8" opacity=".95"/>
+          <path d="M0 92L46 50l38 36 34-28 46 40 46-30v50H0z" fill="url(#cvMB)"/>
+          <path d="M0 118l34-36 42 32 48-38 50 34 36-22v30H0z" fill="url(#cvMA)"/>
+        </svg>
+      </div>
+      <span class="cv-handle h1"></span><span class="cv-handle h2"></span><span class="cv-handle h3"></span>
+      <span class="cv-handle h4"></span><span class="cv-handle h5"></span>
+      <span class="cv-handle h6"></span><span class="cv-handle h7"></span><span class="cv-handle h8"></span>
+      <svg class="cv-cursor" viewBox="0 0 24 24"><path d="M5 3l14 11-6.4 1L15 21l-3.2 1-2.3-6L5 19V3z" fill="#fff" stroke="#4A4470" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="layer-panel" aria-hidden="true" data-page-node-id="AFnsge2m8psiCZH2mgRA6O">
+      <div class="lp-head" data-page-node-id="r7NAQtDYkASQ8sjA2SFVCE"><i data-page-node-id="L69NDnDCBrwLEapzZxP1Dq"></i>LAYERS · Comp 1<span class="lp-t">☰</span></div>
+      <div class="lp-row hot" data-page-node-id="8bjFxO3DtyxXoPJSebpsWd"><svg class="ic" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" rx="1.5" fill="none" stroke="#7C6CF0" stroke-width="1.4"/><circle cx="6" cy="6" r="1.6" fill="#7C6CF0"/></svg>Comp 1<svg class="eye" viewBox="0 0 16 12"><path d="M1.5 6c2.4-3.2 10.6-3.2 13 0-2.4 3.2-10.6 3.2-13 0z" fill="none" stroke="#7C6CF0" stroke-width="1.3"/><circle cx="8" cy="6" r="1.7" fill="#7C6CF0"/></svg></div>
+      <div class="lp-row" data-page-node-id="lEs9ffmndk9gn5pZe68DvT"><svg class="ic" viewBox="0 0 12 12"><path d="M6 1l5 5-5 5-5-5 5-5z" fill="#8A7BF6"/></svg>Shape Layer<svg class="eye" viewBox="0 0 16 12"><path d="M1.5 6c2.4-3.2 10.6-3.2 13 0-2.4 3.2-10.6 3.2-13 0z" fill="none" stroke="#A2A7BC" stroke-width="1.3"/><circle cx="8" cy="6" r="1.7" fill="#A2A7BC"/></svg></div>
+      <div class="lp-row" data-page-node-id="SBX6ww2lACiljOhOrhXOCz"><svg class="ic" viewBox="0 0 12 12"><path d="M1 8a5 5 0 0110 0v3H1V8z" fill="#F06CA8"/></svg>Adjustment Layer<svg class="eye" viewBox="0 0 16 12"><path d="M1.5 6c2.4-3.2 10.6-3.2 13 0-2.4 3.2-10.6 3.2-13 0z" fill="none" stroke="#A2A7BC" stroke-width="1.3"/><circle cx="8" cy="6" r="1.7" fill="#A2A7BC"/></svg></div>
+      <div class="lp-row" data-page-node-id="HSg0dpWcI2JPFrTA1tW8iG"><svg class="ic" viewBox="0 0 12 12"><path d="M2 2.5h8M6 2.5V10" stroke="#4AA8F0" stroke-width="1.8" stroke-linecap="round"/></svg>Text<svg class="eye" viewBox="0 0 16 12"><path d="M1.5 6c2.4-3.2 10.6-3.2 13 0-2.4 3.2-10.6 3.2-13 0z" fill="none" stroke="#A2A7BC" stroke-width="1.3"/><circle cx="8" cy="6" r="1.7" fill="#A2A7BC"/></svg></div>
+      <div class="lp-row" data-page-node-id="ls42shqRBxtVutcGwkhSNY"><svg class="ic" viewBox="0 0 12 12"><rect x="1" y="3.5" width="7" height="5" rx="1" fill="#8B90A8"/><path d="M8 5l3-1.7v5.4L8 7z" fill="#8B90A8"/></svg>Camera<svg class="eye" viewBox="0 0 16 12"><path d="M1.5 6c2.4-3.2 10.6-3.2 13 0-2.4 3.2-10.6 3.2-13 0z" fill="none" stroke="#A2A7BC" stroke-width="1.3"/><circle cx="8" cy="6" r="1.7" fill="#A2A7BC"/></svg></div>
+      <div class="lp-row" data-page-node-id="udG8Qrz1o9BFI4F76OptPw"><svg class="ic" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" rx="2" fill="#B7BACA"/></svg>Background<svg class="eye" viewBox="0 0 16 12"><path d="M1.5 6c2.4-3.2 10.6-3.2 13 0-2.4 3.2-10.6 3.2-13 0z" fill="none" stroke="#A2A7BC" stroke-width="1.3"/><circle cx="8" cy="6" r="1.7" fill="#A2A7BC"/></svg></div>
+    </div>
+    <div class="script-note sn-r" data-page-node-id="jvfJAggpXtWb6BHdGmro32">好创意<br data-page-node-id="fBcaHllDF9mg0eGmCeI6ZI">不该被版本困住</div>
+  </div>
+</header>
+
+<!-- ====== 1 选择文件 ====== -->
+<div class="card" data-page-node-id="PxIigCcAYzSb55Imby8bFR">
+  <div class="card-head" data-page-node-id="WP3I4l08mcMRClxAXozVDd">
+    <div class="step" data-page-node-id="JolPIiTlgaB1B9XWYaVZ44">1</div>
+    <div class="tt" data-page-node-id="xikDuhv8aB7MoYS1UTMjz8">
+      <h2 data-page-node-id="QeHI3yIV5YAEitzH6ylJC4">选择文件</h2>
+      <div class="st" data-page-node-id="ADbPKnSqleHK61M8EHD7eu">选择需要降级的 AEP / 预设文件</div>
+    </div>
+    <div class="card-corner" data-page-node-id="jjVCFNVFbkDLJExgNUcQ1k">DRAG &amp; DROP<div class="dots" data-page-node-id="JxwlKSNfFlEVxhm209kZc7"><i data-page-node-id="oxiKnpj3YMebDpQuZFJjl2"></i><i data-page-node-id="QG3i6cx9Hakz88eSp5zkkh"></i><i data-page-node-id="fGnbzrXoLsKLAthhQQuxRH"></i></div></div>
+  </div>
+
+  <div class="drop" id="drop" data-page-node-id="7z8CEh6KTZfKvRhBFWeUhr">
+    <svg class="folder" viewBox="0 0 96 84" fill="none" aria-hidden="true" data-page-node-id="NaLD59Fj0GMmxK70iuqEXV">
+      <defs data-page-node-id="sse4HdCrCD9qFqqQAPEKzz">
+        <linearGradient id="fg1" x1="0" y1="0" x2="1" y2="1" data-page-node-id="3Q44J2UWNVLGgv6fOrh7ih">
+          <stop offset="0" stop-color="#A99CF5" data-page-node-id="9lgbLUv1xSKNNplX2lRHs1"/><stop offset="1" stop-color="#6C5CE7" data-page-node-id="zaPFSc68FOk3y730M2L4KR"/>
+        </linearGradient>
+        <linearGradient id="fg2" x1="0" y1="0" x2="0" y2="1" data-page-node-id="wGd0nPdElp9mAHkJmQXBY4">
+          <stop offset="0" stop-color="#CDC5FA" data-page-node-id="3ubRjZow9D94fIW2NFX8UN"/><stop offset="1" stop-color="#9487F8" data-page-node-id="KEtezdy4y8w7M9ynyuJH4Z"/>
+        </linearGradient>
+      </defs>
+      <path d="M8 20c0-4.4 3.6-8 8-8h20l8 9h28c4.4 0 8 3.6 8 8v35c0 4.4-3.6 8-8 8H16c-4.4 0-8-3.6-8-8V20z" fill="url(#fg2)" data-page-node-id="cF1DCPOirMmYrg75X3oV7q"/>
+      <path d="M8 32h80v32c0 4.4-3.6 8-8 8H16c-4.4 0-8-3.6-8-8V32z" fill="url(#fg1)" data-page-node-id="JGH8aEJ0a6AQV7Tpd9IRNy"/>
+      <path d="M8 32h80v6H8z" fill="#fff" opacity=".22" data-page-node-id="MIDAImqNRuTxBg2BZ8BEui"/>
+      <circle cx="72" cy="24" r="14" fill="#4AA8F0" stroke="#fff" stroke-width="3" data-page-node-id="mBWs7PXk7ZdOA1ERKx3Vs8"/>
+      <path d="M72 18v12M66 24h12" stroke="#fff" stroke-width="3" stroke-linecap="round" data-page-node-id="2aa4FyDMy96jUNHwvfRr8A"/>
+    </svg>
+    <div class="big" data-page-node-id="ofapLkV2rSAQD0intRUSaY">把 <b data-page-node-id="2jvX1ADNvgq3C8CdyGFIFu">.aep / .ffx / .aepx</b> 文件拖到这里，或点击选择</div>
+    <div class="sm" data-page-node-id="QFpQPmalc40HasXc5atQyy">支持一次选多个文件；也可以选整个文件夹（含子目录）</div>
+    <div class="script-hint" data-page-node-id="D7VKIWZoEjQZI0NffR9RhK"><svg viewBox="0 0 44 36" width="38" height="31" fill="none"><path d="M5 4c12 3 26 10 30 25" stroke="#9C8DF0" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 6"/><path d="M28 23l7 8 2.5-10" stroke="#9C8DF0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Drop Your<br data-page-node-id="FuPFCjcYOAuJ5ZDd0TbTuG">Creativity Here</div>
+  </div>
+
+  <div class="row" style="margin-top:14px" data-page-node-id="58MDC3XKDdz0QQThHI5Rs6">
+    <button class="btn sm" id="pickFile" data-page-node-id="FPfexJMlXCQ1rrE7RmxV8j"><svg viewBox="0 0 24 24" fill="none" data-page-node-id="nmCRGCy132zSB45tUasXIL"><path d="M6 2h9l5 5v15H6V2z" fill="currentColor" opacity=".25" data-page-node-id="t1BaeF8ICAYKq2ssL5LguP"/><path d="M6 2h9l5 5v15H6V2z" stroke="currentColor" stroke-width="1.8" data-page-node-id="mSJGUWjPXwuXaiqDEJxj6B"/><path d="M15 2v5h5" stroke="currentColor" stroke-width="1.8" data-page-node-id="Prflm8r5vKATFZM6s4AR6m"/></svg>选择文件…</button>
+    <button class="btn ghost sm" id="pickDir" data-page-node-id="BosPi2STMHb4lx5ONL4o88"><svg viewBox="0 0 24 24" fill="none" data-page-node-id="sUcrUAaUJonGjoTk48yVF5"><path d="M3 7c0-1.1.9-2 2-2h5l2 2.5h7c1.1 0 2 .9 2 2V17c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" data-page-node-id="jQmCB6WHtGFkvoCrjgMVDh"/></svg>选择文件夹…</button>
+    <button class="btn ghost sm" id="clear" data-page-node-id="U76K6DbCURNN3kLWZx0sBx"><svg viewBox="0 0 24 24" fill="none" data-page-node-id="9cxaJBzwlAsguCYVmIMxmR"><path d="M4 7h16M9 7V5h6v2M6.5 7l1 13h9l1-13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="bzTD8otLmEv8RSXVj4EQBG"/></svg>清空列表</button>
+    <input type="file" id="fFile" multiple accept=".aep,.ffx,.aepx" hidden data-page-node-id="xIAj9APaPdfgL5czbBQg2j">
+    <input type="file" id="fDir" webkitdirectory multiple hidden data-page-node-id="qMKbDJeMEqLCifXNy05UyE">
+  </div>
+
+  <div id="listWrap" style="margin-top:16px" data-page-node-id="EsU6MvYQN4A3DkuNvjYubw">
+    <div class="empty" id="emptyTip" data-page-node-id="5EJQORCUnWw75J6Kz4l26C">
+      <svg width="34" height="26" viewBox="0 0 34 26" fill="none" style="display:block;margin:0 auto 8px;opacity:.55" aria-hidden="true" data-page-node-id="WCpXE4kfGFCjGmZ1OqfIMJ"><path d="M2 8c0-2.2 1.8-4 4-4h8l3 3.5H28c2.2 0 4 1.8 4 4V18c0 2.2-1.8 4-4 4H6c-2.2 0-4-1.8-4-4V8z" stroke="#9C97C4" stroke-width="2" data-page-node-id="SpLymVhFUXGNL5eCEJsKmc"/></svg>
+      还没有文件<br data-page-node-id="PW86ZAHAG6dlDnhY2yxgOV"><span style="font-size:12px" data-page-node-id="njYrR4rjGPZQWALEFDZcVK">添加文件后会在这里显示</span>
+    </div>
+    <div id="tableWrap" hidden data-page-node-id="KUGpt30GvCFqUXvNVoJZJ0">
+      <table data-page-node-id="2oAlg9OETdqSENOTPs0Xzx">
+        <thead data-page-node-id="tnvFHX4fvTsRzpLSqqjYEc"><tr data-page-node-id="dTzS6BAe1vRL7NumCNxXkG">
+          <th data-page-node-id="i8ERAjwKtShgfOPULtXWBw">文件</th><th data-page-node-id="7iJvwdQAgrRRvf8icwks9Y">类型</th><th data-page-node-id="8vYdWdEFHVoFT2QN9i7xOF">检测到的源版本</th><th data-page-node-id="nHxVYBLxNRoiZcBNO2eMVt">大小</th><th data-page-node-id="fBfjDFvEGmLGdpfqdUAeWY">状态</th>
+        </tr></thead>
+        <tbody id="tbody" data-page-node-id="8EnCPKAs2dLsx0Kp3iZeFf"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 2 选择目标版本 ====== -->
+<div class="card" data-page-node-id="s7TOdH7XAweshb9liRHYNZ">
+  <svg class="timeline-deco" viewBox="0 0 250 90" fill="none" aria-hidden="true" data-page-node-id="lIH9TNbPTYyACMYmqeAEF8">
+    <defs data-page-node-id="SIkJUVDfycj44AHYwi3qeP">
+      <linearGradient id="tl" x1="0" y1="0" x2="1" y2="0" data-page-node-id="vdGkupyIAEgAfsWdM1dLUJ">
+        <stop offset="0" stop-color="#8A7BF6" data-page-node-id="b1YsuKM9JPBXk8oFGuXkn6"/><stop offset="1" stop-color="#4AA8F0" data-page-node-id="jKqzzNXXCBLBDFcLBC6OAO"/>
+      </linearGradient>
+    </defs>
+    <line x1="0" y1="78" x2="250" y2="78" stroke="#D9D4F2" stroke-width="1" data-page-node-id="NxYdCRkk4GDNtW1jBRilXX"/>
+    <path d="M4 62 C40 66 58 40 86 46 S140 70 170 52 216 22 246 30" stroke="url(#tl)" stroke-width="2.5" stroke-linecap="round" data-page-node-id="X6oMApj109UBes2QLytdOc"/>
+    <g fill="#fff" stroke="#7C6CF0" stroke-width="2.2" data-page-node-id="gSEAP12ZGWpeNUkQW0DU5i">
+      <path d="M40 56l7 7-7 7-7-7z" data-page-node-id="dJVdfhmrbAmTtTPVD4R9eI"/>
+      <path d="M120 52l7 7-7 7-7-7z" data-page-node-id="IoWbtNyWE2zaePI3Do47Dz"/>
+      <path d="M212 26l7 7-7 7-7-7z" data-page-node-id="6uam0CZeS6OJy4DketY9HB"/>
+    </g>
+    <path d="M170 52l7 7-7 7-7-7z" fill="#7C6CF0" data-page-node-id="rECahJTVAognnfB0bY3UxR"/>
+    <line x1="120" y1="14" x2="120" y2="78" stroke="#7C6CF0" stroke-width="2" stroke-linecap="round" data-page-node-id="w8U9WYQOe2JBA0MYGs0AGB"/>
+    <path d="M116 14h8l-4 7-4-7z" fill="#7C6CF0" data-page-node-id="O4ANF0D7TzXxZwCNrY4hp8"/>
+    <g fill="#B7B2D8" font-size="7.5" font-family="monospace" data-page-node-id="QlkdE7j1fCWI1Jgxd8ips1">
+      <text x="8" y="88" data-page-node-id="b0vgYp7DcOBEvD9T6c6ETy">00:00</text><text x="70" y="88" data-page-node-id="VipSWom20fR8lGHTaseFo5">00:05</text>
+      <text x="136" y="88" data-page-node-id="dhqCLwJ8BR4SpBfxccaqbn">00:10</text><text x="204" y="88" data-page-node-id="bITGxMr7pIB5fGp3cMyhfW">00:15</text>
+    </g>
+  </svg>
+
+  <div class="card-head" data-page-node-id="xGcXm21FQN9fHmTFyz4EBB">
+    <div class="step" data-page-node-id="DuzMIfGuM4Vt0d7NuxOkUG">2</div>
+    <div class="tt" data-page-node-id="CX08EFCfXiNWWzPkQICvJN">
+      <h2 data-page-node-id="oA9NTlFZkVpfcP8YkbY0kv">选择目标版本</h2>
+      <div class="st" data-page-node-id="anKYmBBHppjWIHSRfLwzis">选择要降级到的 After Effects 版本</div>
+    </div>
+    <div class="card-corner" data-page-node-id="ecgkIjB0vDFaIXWZDoF20S">VERSION<div class="dots" data-page-node-id="KkCaC44s66XFHtvMU9Y6Zt"><i data-page-node-id="Hcaez8L61n1hPlBAbI8MMS"></i><i data-page-node-id="acR6hq4jgcIEQybhlQTDlu"></i><i data-page-node-id="2YjIq9wBKzdFcSnUEDEBKl"></i></div></div>
+  </div>
+
+  <div class="row" data-page-node-id="znwns2VdkEcGJF4Hz8TmnB">
+    <select id="target" data-page-node-id="np983enz32MA4b4NAT8wnS"><option value="" data-page-node-id="0qOFs2dtdxiyDSVAYostD7">请先选择文件…</option></select>
+    <span id="risk" class="tag t-gray" data-page-node-id="vGaMC5gj2aCSmzijssBnlJ">—</span>
+  </div>
+  <div class="row" style="margin-top:13px" data-page-node-id="xN0boIPR5btgHy8NW9jbXo">
+    <label class="ck" data-page-node-id="83BsUlOyXPcHDQCiJBHbjH"><input type="checkbox" id="aggressive" data-page-node-id="K0FHlV3UGD5RLlqCdpETUT">激进模式（把 minor / patch / build 一并归零）</label>
+  </div>
+  <div class="hint" data-page-node-id="pF3l5arDCeMNp2e0L9hVqg">默认只改主版本号，其余字段原样保留 —— 改动越小越安全。</div>
+  <div class="note" style="margin-top:14px" data-page-node-id="bR59PLju03fksVvQdpZVdc">
+    <b data-page-node-id="KXbyHChFVG4FTAEjew1ak8">这是"改版本标记"，不是真正的格式转换。</b><br data-page-node-id="AUB2qYZjLCkflZJXBAm091">
+    After Effects 打开工程时会先看头部版本号，比自己高就直接拒载。本工具把版本号改小，让旧版 AE 愿意加载。
+    但旧版本本身不支持的新效果、新属性、表达式、第三方插件，仍然会丢失或报错。<br data-page-node-id="6MKF8FmR5BOlSkCimtbP1j">
+    <b data-page-node-id="FEeeNuXW4cwkRBQGEO79mt">Adobe 官方的"另存为低版本"只支持回退 2 个大版本</b>，跨度越大风险越高。原文件不会被改动，输出的是副本。
+  </div>
+</div>
+
+<!-- ====== 3 转换并下载 ====== -->
+<div class="card" data-page-node-id="2ihilYZUj8wlmEVBmEVIBp">
+  <div class="card-head" data-page-node-id="EUcMCfDmGzeDvfmYN9oxdb">
+    <div class="step" data-page-node-id="eRyCW3iueRE85tUo1yzMB8">3</div>
+    <div class="tt" data-page-node-id="SbOhwGVyUwNYzIDFbbup1c">
+      <h2 data-page-node-id="eIsYfNw63vyE0WQvRr7tyK">转换并下载</h2>
+      <div class="st" data-page-node-id="aIumrauwA1vGi8RAgdoFYe">一键批量改写，逐文件往返校验后打包下载</div>
+    </div>
+    <div class="card-corner" data-page-node-id="9xzjpTvV4D6PuIcGxhiv9T">EXPORT<div class="dots" data-page-node-id="eTlRUTgouIZgDODDe1Bfs0"><i data-page-node-id="Byydan7LFHio6X7cfT9K62"></i><i data-page-node-id="Mw7ph2QkRgtcfJTRbhWoIw"></i><i data-page-node-id="QvIxvNMA9PDALWrOIT2Z5f"></i></div></div>
+  </div>
+  <div class="row" data-page-node-id="ca2YpA0plx7LQ3AYXfSw8N">
+    <button class="btn" id="run" disabled data-page-node-id="XC6YYWQCJ3T1nG1VifpZV7"><svg viewBox="0 0 24 24" fill="none" data-page-node-id="P24vlExDCIvyfKxr3ec2SR"><path d="M7 4l13 8-13 8V4z" fill="currentColor" data-page-node-id="axtweKGDYBeeCYtzwKxS7J"/></svg>开始转换</button>
+    <button class="btn ghost" id="dlZip" disabled data-page-node-id="DUvPJ103c3uYJxv0Mce54o"><svg viewBox="0 0 24 24" fill="none" data-page-node-id="kOhvjnL8xwmlfy7mHxtbIY"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 20h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="rxO5t4P3Cb8dgFCP9J8jA0"/></svg>下载全部（ZIP）</button>
+    <span id="stat" class="stat" data-page-node-id="6x8xbD4yGIEmmlIOJ1ZkNS"></span>
+  </div>
+  <div id="outWrap" style="margin-top:16px" hidden data-page-node-id="ci7Q611BniBTrQJo9Svrpz">
+    <table data-page-node-id="FMOEZxbBlLGqYzhbiBxOVQ">
+      <thead data-page-node-id="FRiiTzFKEi6GkyobilRYJO"><tr data-page-node-id="VQcprDo40qkY8FBTe5HxPT"><th data-page-node-id="VpefBRzctIxqvliEvHJ0X6">输出文件</th><th data-page-node-id="254FyNC6Y7E1jQBEOuzlTv">变更</th><th data-page-node-id="4ylbdI9YMhrbNVbKYeau4U">往返校验</th><th data-page-node-id="bO3DBJrusWolp20XMDinUp">下载</th></tr></thead>
+      <tbody id="outBody" data-page-node-id="hTwWdEJoOfm0rxBkxKd3V9"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ====== 4 体检 ====== -->
+<div class="card" data-page-node-id="PxUirA1sfCd3tFqWS2hjUm">
+  <div class="card-head" data-page-node-id="qLwZmoO6VPEHj9NCPTmDra">
+    <div class="step" data-page-node-id="AyhoDGAsm69dndsO249mYh">4</div>
+    <div class="tt" data-page-node-id="6qFaTOegDOFPSYSpM1RjCr">
+      <h2 data-page-node-id="wCByW2rulqzMuPgMovDvTL">体检 · 版本标记在哪几个字节</h2>
+      <div class="st" data-page-node-id="QxbW25PF4TSXJCPv41j0Bx">十六进制视图，高亮即将改写的位置，改了什么一目了然</div>
+    </div>
+    <div class="card-corner" data-page-node-id="SCSC2z6KhGy2tAHE4JdL2k">INSPECT<div class="dots" data-page-node-id="5iAiF6RdTEmxVH7C051GQt"><i data-page-node-id="72lO3FpAwjswodokYb1EeC"></i><i data-page-node-id="ndeFy3UuGJ0LGNwMW2sOKf"></i><i data-page-node-id="gDFvcVKBFynChxnLjd45Oh"></i></div></div>
+  </div>
+  <div id="hexWrap" data-page-node-id="NI6gxczoiKS9IoIIMHWy8l"><div class="empty" data-page-node-id="1uzonAg5aJCquqDjjqzuGH">选择文件后，这里会显示文件头部的十六进制，并高亮将要改写的位置。</div></div>
+  <details data-page-node-id="jOXQaZeymZcg0oBIN8YIN8">
+    <summary data-page-node-id="CR8fIKHIHrJcsEytBCfZ41">查看版本对照表（实测验证记录）</summary>
+    <table class="vt" style="margin-top:10px" data-page-node-id="7DdpZwvskFS04OZwE8WnAA">
+      <thead data-page-node-id="FezEFJX014lt1Bchj5wprw"><tr data-page-node-id="5YZaPD3DFdDhDScti7sTCP"><th data-page-node-id="RYpByLtlw03oQphUOAjgkS">版本</th><th data-page-node-id="N9VRMrevHMkEk1LpvFxIuu">major</th><th data-page-node-id="fos1Ak3TQByckcrTdsdyBD">格式字节</th><th data-page-node-id="viEy2SWKGAYqkBDuEpre56">来源</th></tr></thead>
+      <tbody id="vtBody" data-page-node-id="E1RhUXqJscYZPdAUlFJ3UF"></tbody>
+    </table>
+    <div class="hint" data-page-node-id="Puo39C3DtBj0Xi8TpUMdtQ">
+      验证方法：Adobe 官方预设库（AE 2025 自带的 700+ 个 .ffx）里内嵌 XMP，
+      记录了每个文件的 CreatorTool（如 "Adobe After Effects CC 2017"），
+      与文件头格式字节一一比对后交叉确认。0x60 = AE 2025 由 AE 2025 自带的 secret.aep 实测确认。
+      26.x = 0x61 是按 22.x–25.x 的线性规律（fmt = major + 71）外推的，实际处理时还会与文件内
+      版本字解码出的 major 交叉校验，两者对不上就拒绝，不会盲改。
+    </div>
+  </details>
+</div>
+
+<footer data-page-node-id="AH6xFwEeBJkvB6jHQ0FQay">
+  本工具不会上传任何文件，全部处理在你的浏览器内完成。<br data-page-node-id="CB9FEFvzMUuFVi1BEJi6Tk">
+  转换结果请务必用目标版本的 After Effects 实机打开确认。
+</footer>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   核心逻辑（纯函数，不依赖 DOM）
+   ============================================================ */
+
+var OS_WIN=12, OS_MAC=13, OS_MAC_ARM=14;
+var OS_NAMES={12:'Windows',13:'Macintosh',14:'Macintosh(ARM)'};
+
+// [标签, major, 格式字节, 是否已用 Adobe 官方素材实测验证]
+var FORMAT_TABLE=[
+  ['CS6 (11.x)',     11.0, 0x51, true],
+  ['CC (12.x)',      12.0, 0x56, false],
+  ['CC 2014 (13.x)', 13.0, 0x57, true],
+  ['CC 2015 (13.5)', 13.5, 0x57, true],
+  ['CC 2017 (14.x)', 14.0, 0x58, true],
+  ['CC 2018 (15.x)', 15.0, 0x5C, true],
+  ['CC 2019 (16.x)', 16.0, 0x5D, false],
+  ['2020 (17.x)',    17.0, 0x5D, false],
+  ['2021 (18.x)',    18.0, 0x5D, false],
+  ['2022 (22.x)',    22.0, 0x5D, false],
+  ['2023 (23.x)',    23.0, 0x5E, true],
+  ['2024 (24.x)',    24.0, 0x5F, true],
+  ['2025 (25.x)',    25.0, 0x60, true],
+  // 26.x 由 22.x–25.x 的线性规律（fmt = major + 71）外推，未经实测；
+  // 实际使用时还会与文件内版本字解码出的 major 交叉校验，对不上就拒绝。
+  ['2026 (26.x)',    26.0, 0x61, false]
+];
+
+var BY_MAJOR={}, BY_BYTE={};
+FORMAT_TABLE.forEach(function(r){
+  if(BY_MAJOR[r[1]]===undefined) BY_MAJOR[r[1]]=r[2];
+  if(BY_BYTE[r[2]]===undefined || r[1]<BY_BYTE[r[2]]) BY_BYTE[r[2]]=r[1];
+});
+
+function labelOfMajor(m){
+  for(var i=0;i<FORMAT_TABLE.length;i++){
+    if(Math.abs(FORMAT_TABLE[i][1]-m)<1e-6) return FORMAT_TABLE[i][0];
+  }
+  return '未知版本 ('+m.toFixed(1)+')';
+}
+function formatByteOf(m){ var v=BY_MAJOR[m]; return v===undefined?null:v; }
+function majorOfFormatByte(b){ var v=BY_BYTE[b]; return v===undefined?null:v; }
+
+var MIN_BYTE=0x51, MAX_BYTE=0x61;
+var MAX_MAJOR=26.0;
+var OLDER_LABEL='早于 CS6';
+// 22.x 及以上格式字节满足 fmt = major + 71，在 22.x/23.x/24.x/25.x 四个连续大版本上
+// 实测成立，据此外推 26.x = 0x61 及更高版本。外推值必须与版本字解码出的 major 一致才采信。
+var LINEAR_BASE=71;
+// 'known' 已收录 / 'older' 比 CS6 更老（低于任何目标，跳过）
+// 'inferred' 更新的版本但线性外推值与版本字自洽（采信）/ 'newer' 无法确认（拒绝）
+// 靠线性规律外推出来的版本（26.x = 0x61）。这些条目即使已在表中，也必须与文件内
+// 版本字解码出的 major 严格一致才采信 —— 否则说明外推值错了，直接拒绝。
+var EXTRAPOLATED={26.0:true};
+
+function classifyFormatByte(b, wordMajor){
+  if(BY_BYTE[b]!==undefined){
+    var mm=BY_BYTE[b];
+    if(EXTRAPOLATED[mm]){
+      if(wordMajor===undefined||wordMajor===null) return ['known',mm]; // 无版本字可校验（如 .ffx）
+      if((wordMajor|0)===mm) return ['inferred',mm];
+      return ['newer',null];
+    }
+    return ['known',mm];
+  }
+  if(b<MIN_BYTE) return ['older',null];
+  var m=b-LINEAR_BASE;
+  if(m>MAX_MAJOR && wordMajor!==undefined && wordMajor!==null && (wordMajor|0)===m)
+    return ['inferred', m*1.0];
+  return ['newer',null];
+}
+function inferNote(b, major){
+  return '格式字节 0x'+b.toString(16).toUpperCase().padStart(2,'0')+
+    ' 未经实测，按 22.x–25.x 的线性规律（fmt = major + '+LINEAR_BASE+'）外推为 '+
+    (major|0)+'.x，且与文件内版本字解码结果一致，已采信。';
+}
+
+// ---- 版本字位域 ----
+// bit0-7 build / bit8 未用 / bit9-10 release标志(正式版=0b11) / bit11-14 patch
+// bit15-18 minor / bit19-21 major低3位 / bit22-25 平台 / bit26-31 major高6位
+function decodeWord(v){
+  v = v>>>0;
+  var majorHigh=(v>>>26)&0x1F, os=(v>>>22)&0xF, majorLow=(v>>>19)&0x7;
+  var minor=(v>>>15)&0xF, patch=(v>>>11)&0xF, rel=(v>>>9)&0x3, build=v&0xFF;
+  var major=(majorHigh<<3)|majorLow;
+  return {word:v, major:major, minor:minor, patch:patch, build:build, os:os,
+          osName:OS_NAMES[os]||('未知平台('+os+')'), beta:rel!==0x3,
+          version:major+'.'+minor+'.'+patch};
+}
+function makeWord(major,minor,patch,os,build,beta){
+  var rel = beta?0x0:0x3;
+  return ((((major>>3)&0x1F)<<26)>>>0 | ((os&0xF)<<22) | ((major&0x7)<<19) |
+          ((minor&0xF)<<15) | ((patch&0xF)<<11) | (rel<<9) | (build&0xFF))>>>0;
+}
+function replaceMajorInWord(v,newMajor){
+  v=v>>>0;
+  var keep = v & ~((0x1F<<26)|(0x7<<19));
+  return (keep | (((newMajor>>3)&0x1F)<<26) | ((newMajor&0x7)<<19))>>>0;
+}
+function resetWord(v,newMajor){
+  var d=decodeWord(v);
+  return makeWord(newMajor,0,0,d.os,1,false);
+}
+
+// ---- RIFX 解析 ----
+function parseTopChunks(u8,start,end,limit){
+  var dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  var out=[], off=start; limit=limit||64;
+  while(off+8<=end && out.length<limit){
+    var name='';
+    for(var k=0;k<4;k++){
+      var c=u8[off+k];
+      if(c<0x20||c>0x7E) break;
+      name+=String.fromCharCode(c);
+    }
+    if(name.length!==4) break;
+    var size=dv.getUint32(off+4,false);
+    var dataOff=off+8;
+    if(size>end-dataOff) break;
+    out.push({name:name,offset:off,size:size,dataOffset:dataOff});
+    off = dataOff + size + (size & 1);
+  }
+  return out;
+}
+
+function rdU32(u8,off){
+  var dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  return dv.getUint32(off,false)>>>0;
+}
+
+// ---- 扫描 AEP ----
+function scanAep(u8,path){
+  var res={path:path,ftype:'aep',ok:true,error:'',hits:[],size:u8.length,extra:{}};
+  if(u8.length<48 || !(u8[0]===0x52&&u8[1]===0x49&&u8[2]===0x46&&u8[3]===0x58)){
+    res.ok=false; res.error='不是 RIFX 容器（文件头不是 RIFX）'; return res;
+  }
+  if(!(u8[8]===0x45&&u8[9]===0x67&&u8[10]===0x67&&u8[11]===0x21)){
+    res.ok=false; res.error='RIFX 表单类型不是 "Egg!"，可能不是 AEP 工程'; return res;
+  }
+  var total=rdU32(u8,4);
+  var end = (8+total<=u8.length) ? 8+total : u8.length;
+  var chunks=parseTopChunks(u8,12,end), byName={};
+  chunks.forEach(function(c){ byName[c.name]=c; });
+
+  var head=byName['head'];
+  if(!head || head.size<8){ res.ok=false; res.error='未找到 head 块，无法定位版本标记'; return res; }
+
+  var fmtOff=head.dataOffset+1, fmtByte=u8[fmtOff];
+  var subOff=head.dataOffset+3, subVer=u8[subOff];
+  var wordOff=head.dataOffset+4, word=rdU32(u8,wordOff);
+
+  // 先解码版本字，再与格式字节交叉校验：两者一致才采信（26.x 及以上靠这条兜底）
+  var d=decodeWord(word);
+  var kind=classifyFormatByte(fmtByte, d.major), major=kind[1];
+  if(kind[0]==='newer'){
+    res.ok=false;
+    var exp=BY_BYTE[fmtByte];
+    if(exp!==undefined && EXTRAPOLATED[exp]){
+      res.error='格式字节 0x'+fmtByte.toString(16).toUpperCase().padStart(2,'0')+
+        ' 按线性规律外推应为 '+(exp|0)+'.x，但文件内版本字解码为 '+d.major+
+        '.x，两者不一致 —— 外推值不适用，已中止（未做任何改动）。';
+    }else{
+      res.error='无法识别的格式字节 0x'+fmtByte.toString(16).toUpperCase().padStart(2,'0')+
+        '，且无法与版本字解码结果（'+d.major+'.x）互相印证。本工具不下发未经验证的猜测值，已中止。';
+    }
+    return res;
+  }
+  if(kind[0]==='older'){
+    res.srcFormatByte=fmtByte; res.srcMajor=0; res.srcVersion=OLDER_LABEL;
+    res.extra.olderThanCs6=true; return res;
+  }
+  if(kind[0]==='inferred'){
+    res.extra.inferred=true; res.extra.inferNote=inferNote(fmtByte,major);
+  }
+
+  res.srcFormatByte=fmtByte; res.srcWord=word; res.srcMajor=d.major;
+  res.srcOs=d.os; res.srcBuild=d.build; res.srcVersion=d.version;
+  res.extra.subVer=subVer; res.extra.platform=d.osName;
+
+  res.hits.push({offset:fmtOff,length:1,kind:'format_byte',oldValue:fmtByte,newValue:0,note:'head 块 · 格式字节'});
+  res.hits.push({offset:wordOff,length:4,kind:'word',oldValue:word,newValue:0,note:'head 块 · 版本字'});
+
+  var svap=byName['svap'];
+  if(svap && svap.size>=4){
+    var sv=rdU32(u8,svap.dataOffset);
+    if(sv===word) res.hits.push({offset:svap.dataOffset,length:4,kind:'word',oldValue:word,newValue:0,note:'svap 块 · 版本字'});
+    else res.extra.svapMismatch=sv;
+  }
+  var known={}; res.hits.forEach(function(h){ known[h.offset]=1; });
+  ['head','nhed','nnhd'].forEach(function(cn){
+    var c=byName[cn]; if(!c) return;
+    for(var i=0;i+4<=c.size;i++){
+      if(rdU32(u8,c.dataOffset+i)===word){
+        var off=c.dataOffset+i;
+        if(!known[off]){ known[off]=1;
+          res.hits.push({offset:off,length:4,kind:'word',oldValue:word,newValue:0,note:cn+' 块 · 版本字(补充)'});
+        }
+      }
+    }
+  });
+  return res;
+}
+
+// ---- 扫描 FFX ----
+function scanFfx(u8,path){
+  var res={path:path,ftype:'ffx',ok:true,error:'',hits:[],size:u8.length,extra:{}};
+  if(u8.length<48 || !(u8[0]===0x52&&u8[1]===0x49&&u8[2]===0x46&&u8[3]===0x58)){
+    res.ok=false; res.error='不是 RIFX 容器（文件头不是 RIFX）'; return res;
+  }
+  if(!(u8[8]===0x46&&u8[9]===0x61&&u8[10]===0x46&&u8[11]===0x58)){
+    res.ok=false; res.error='RIFX 表单类型不是 "FaFX"（老式 FFX1 预设不支持）'; return res;
+  }
+  var total=rdU32(u8,4);
+  var end=(8+total<=u8.length)?8+total:u8.length;
+  var chunks=parseTopChunks(u8,12,end);
+  var head=null;
+  for(var i=0;i<chunks.length;i++){ if(chunks[i].name==='head'){ head=chunks[i]; break; } }
+  if(!head || head.size<12){ res.ok=false; res.error='未找到 head 块'; return res; }
+
+  var fmtOff=head.dataOffset+4, fmtInt=rdU32(u8,fmtOff);
+  var subOff=head.dataOffset+8, subVer=rdU32(u8,subOff);
+  if(fmtInt>0xFF){ res.ok=false; res.error='head 内格式字段异常（0x'+fmtInt.toString(16)+'），已中止'; return res; }
+  var kind=classifyFormatByte(fmtInt), major=kind[1];
+  if(kind[0]==='newer'){
+    res.ok=false;
+    res.error='无法识别的格式字节 0x'+fmtInt.toString(16).toUpperCase().padStart(2,'0')+
+      ' —— 预设文件没有版本字可供交叉校验，本工具不下发未经验证的猜测值，已中止。';
+    return res;
+  }
+  if(kind[0]==='older'){
+    res.srcFormatByte=fmtInt; res.srcMajor=0; res.srcVersion=OLDER_LABEL;
+    res.extra.olderThanCs6=true; return res;
+  }
+  res.srcFormatByte=fmtInt; res.srcMajor=major; res.srcVersion=major.toFixed(1);
+  res.extra.subVer=subVer;
+  res.hits.push({offset:fmtOff,length:4,kind:'format_byte',oldValue:fmtInt,newValue:0,note:'head 块 · 格式字节'});
+  return res;
+}
+
+// ---- 扫描 AEPX（XML） ----
+// 真实样本（AE CC 2018 保存的空工程，经公开资料核实）：
+//   <svap bdata="07789645"/>                                ← 版本字（4 字节）
+//   <head bdata="005c000e07789645800000000000000c00000019"/> ← 20 字节，与 .aep head 块数据区一致
+// AEPX 把 RIFX 的每个 chunk 序列化成 XML 元素，二进制数据区放进 bdata 属性
+// （连续小写十六进制串）。因此 head 的 bdata 布局与 .aep 完全一致：
+//   hex[0:2]=00  hex[2:4]=格式字节  hex[4:6]=00  hex[6:8]=子版本  hex[8:16]=版本字
+// 自校验：07789645 按位域解码 = 15.1.2 build 69 Macintosh，与 hex[2:4] 的 5c（CC 2018）自洽。
+var BDATA_RE=/bdata\s*=\s*(?:"([0-9A-Fa-f]*)"|'([0-9A-Fa-f]*)')/g;
+var HEAD_TAG_RE=/<head\b[^>]*>/g;
+var SVAP_TAG_RE=/<svap\b[^>]*>/g;
+var HEX_HEAD_RE=/(00)([0-9A-Fa-f]{2})(00)([0-9A-Fa-f]{2})([0-9A-Fa-f]{8})/g;
+
+// 在匹配 tagRe 的标签内找 bdata 属性，返回 [hex 起始偏移, 结束偏移, hex 串]
+function tagBdataSpans(text,tagRe){
+  var out=[], m, b;
+  tagRe.lastIndex=0;
+  while((m=tagRe.exec(text))!==null){
+    BDATA_RE.lastIndex=0;
+    while((b=BDATA_RE.exec(m[0]))!==null){
+      var val = (b[1]!==undefined) ? b[1] : b[2];
+      // b[0] 形如 bdata="xxxx"，末位是引号，倒数第二位起是 hex
+      var s = m.index + b.index + b[0].length - val.length - 1;
+      out.push([s, s+val.length, val]);
+    }
+  }
+  return out;
+}
+
+function scanAepx(text,path){
+  var res={path:path,ftype:'aepx',ok:true,error:'',hits:[],size:text.length,extra:{},
+           srcVersion:'',srcMajor:0,srcFormatByte:0,srcWord:0,srcOs:OS_WIN,srcBuild:0};
+  var chosen=null;
+  var spans=tagBdataSpans(text,HEAD_TAG_RE);
+  for(var i=0;i<spans.length;i++){
+    var s=spans[i][0], hex=spans[i][2];
+    if(hex.length<16) continue;
+    if(hex.substr(0,2).toLowerCase()!=='00') continue;
+    if(hex.substr(4,2).toLowerCase()!=='00') continue;
+    var fmtByte=parseInt(hex.substr(2,2),16);
+    var word=parseInt(hex.substr(8,8),16);
+    var d=decodeWord(word);
+    if(!OS_NAMES[d.os]) continue;                       // 平台代号必须已知
+    var kind=classifyFormatByte(fmtByte,d.major);
+    if(kind[0]==='newer'||kind[0]==='older') continue;
+    if(chosen===null||d.major>chosen[3].major) chosen=[s,hex,fmtByte,d];
+    if(kind[0]==='inferred'){ res.extra.inferred=true; res.extra.inferNote=inferNote(fmtByte,kind[1]); }
+  }
+  if(chosen===null) return scanAepxFallback(text,res);
+
+  var s0=chosen[0], hex0=chosen[1], fmtByte0=chosen[2], d0=chosen[3];
+  var word0=d0.word;
+  res.srcFormatByte=fmtByte0; res.srcWord=word0; res.srcMajor=d0.major;
+  res.srcOs=d0.os; res.srcBuild=d0.build; res.srcVersion=d0.version;
+  res.extra.subVer=parseInt(hex0.substr(6,2),16); res.extra.platform=d0.osName;
+
+  res.hits.push({offset:s0+2,length:2,kind:'format_byte_hex',oldValue:fmtByte0,newValue:0,note:'head 元素 · bdata 格式字节'});
+  res.hits.push({offset:s0+8,length:8,kind:'word_hex',oldValue:word0,newValue:0,note:'head 元素 · bdata 版本字'});
+
+  var sv=tagBdataSpans(text,SVAP_TAG_RE);
+  for(var j=0;j<sv.length;j++){
+    var hx=sv[j][2];
+    if(hx.length<8) continue;
+    var w=parseInt(hx.substr(0,8),16);
+    if(w===word0){
+      res.hits.push({offset:sv[j][0],length:8,kind:'word_hex',oldValue:w,newValue:0,note:'svap 元素 · bdata 版本字'});
+      break;
+    }
+    res.extra.svapMismatch=w;
+  }
+  return res;
+}
+
+// 兜底：没有标准 head 元素时全文扫描内嵌十六进制头，只在能通过双重校验时才动手
+function scanAepxFallback(text,res){
+  var hits=[], foundMajor=0, foundWord=0, m;
+  HEX_HEAD_RE.lastIndex=0;
+  while((m=HEX_HEAD_RE.exec(text))!==null){
+    var fmtByte=parseInt(m[2],16), word=parseInt(m[5],16);
+    var kind=classifyFormatByte(fmtByte);
+    if(kind[0]!=='known') continue;
+    var d=decodeWord(word);
+    if(!OS_NAMES[d.os]) continue;
+    if(Math.abs(d.major-kind[1])>2.0) continue;
+    hits.push({offset:m.index+2,length:2,kind:'format_byte_hex',oldValue:fmtByte,newValue:0,note:'内嵌十六进制块 · 格式字节(兜底)'});
+    hits.push({offset:m.index+8,length:8,kind:'word_hex',oldValue:word,newValue:0,note:'内嵌十六进制块 · 版本字(兜底)'});
+    if(d.major>foundMajor){ foundMajor=d.major; foundWord=word; }
+    res.srcFormatByte=fmtByte;
+  }
+  if(hits.length===0){
+    res.ok=false;
+    res.error='未能在 XML 中定位到版本头（既没有标准 <head bdata>，也没找到可校验的内嵌十六进制头）。本工具不会在无法确认时改写文件。';
+    return res;
+  }
+  res.hits=hits; res.srcMajor=foundMajor; res.srcWord=foundWord;
+  res.srcVersion=foundWord?decodeWord(foundWord).version:foundMajor.toFixed(1);
+  res.extra.aepxFallback=true;
+  return res;
+}
+
+// ---- 统一入口 ----
+function scanBytes(u8,path){
+  var ext=(path||'').toLowerCase().split('.').pop();
+  // AEPX 用 latin-1 解码：1 字节 = 1 字符，命中的偏移可直接用于字节级补丁，
+  // 中文等 UTF-8 多字节内容不会造成错位（用 utf-8 解码会错位）。
+  if(ext==='aepx') return scanAepx(latin1(u8),path);
+  if(u8[0]===0x52&&u8[1]===0x49&&u8[2]===0x46&&u8[3]===0x58){
+    if(u8[8]===0x46&&u8[9]===0x61&&u8[10]===0x46&&u8[11]===0x58) return scanFfx(u8,path);
+    if(u8[8]===0x45&&u8[9]===0x67&&u8[10]===0x67&&u8[11]===0x21) return scanAep(u8,path);
+  }
+  if(ext==='ffx') return scanFfx(u8,path);
+  if(ext==='aep') return scanAep(u8,path);
+  // 无扩展名兜底：以 <?xml 开头一律按 AEPX 处理
+  var s=u8.length; while(s>0 && (u8[s-1]===10||u8[s-1]===13||u8[s-1]===32)) s--;
+  if(u8.length>6 && u8[0]===0x3C && u8[1]===0x3F && u8[2]===0x78 && u8[3]===0x6D) return scanAepx(latin1(u8),path);
+  return {path:path,ftype:'unknown',ok:false,error:'无法识别的文件类型（支持 .aep / .ffx / .aepx）',hits:[],size:u8.length,extra:{}};
+}
+
+function latin1(u8){
+  var out='';
+  for(var i=0;i<u8.length;i++) out+=String.fromCharCode(u8[i]);
+  return out;
+}
+
+function computeNewValues(res,targetMajor,aggressive){
+  var tb=formatByteOf(targetMajor);
+  if(tb===null) throw new Error('目标版本不在支持列表中');
+  var mi=Math.round(targetMajor);
+  res.hits.forEach(function(h){
+    if(h.kind==='format_byte'||h.kind==='format_byte_hex') h.newValue=tb;
+    else h.newValue = aggressive ? resetWord(h.oldValue,mi) : replaceMajorInWord(h.oldValue,mi);
+  });
+}
+
+function applyPatch(u8,res){
+  var out=new Uint8Array(u8);
+  var dv=new DataView(out.buffer);
+  res.hits.forEach(function(h){
+    if(h.kind==='format_byte_hex'||h.kind==='word_hex'){
+      // aepx：文本态，按十六进制字符串替换，长度严格不变，沿用原文的大小写风格
+      var upper=false;
+      for(var q=0;q<h.length;q++){ var cc=u8[h.offset+q]; if(cc>=0x41&&cc<=0x46){ upper=true; break; } }
+      var str=(h.newValue>>>0).toString(16);
+      while(str.length<h.length) str='0'+str;
+      if(upper) str=str.toUpperCase();
+      if(str.length!==h.length) throw new Error('十六进制补丁长度异常，已中止');
+      for(var k=0;k<h.length;k++) out[h.offset+k]=str.charCodeAt(k);
+    }
+    else if(h.length===1) dv.setUint8(h.offset,h.newValue&0xFF);
+    else if(h.length===4) dv.setUint32(h.offset,h.newValue>>>0,false);
+  });
+  return out;
+}
+
+function riskLevel(src,dst){
+  var span=src-dst;
+  if(span<=0) return ['无需处理','t-gray'];
+  if(span<=2) return ['推荐','t-ok'];
+  if(span<=5) return ['实验性','t-warn'];
+  return ['高风险','t-err'];
+}
+
+/* ---- 最小 ZIP（store 模式，无压缩）---- */
+var CRC_T=(function(){
+  var t=new Uint32Array(256);
+  for(var n=0;n<256;n++){
+    var c=n;
+    for(var k=0;k<8;k++) c = (c&1) ? (0xEDB88320 ^ (c>>>1)) : (c>>>1);
+    t[n]=c>>>0;
+  }
+  return t;
+})();
+function crc32(u8){
+  var c=0xFFFFFFFF;
+  for(var i=0;i<u8.length;i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c>>>8);
+  return (c ^ 0xFFFFFFFF)>>>0;
+}
+function zipStore(files){
+  var parts=[], central=[], offset=0;
+  var enc=new TextEncoder();
+  files.forEach(function(f){
+    var nameB=enc.encode(f.name), crc=crc32(f.data), n=f.data.length;
+    var lh=new Uint8Array(30+nameB.length);
+    var dv=new DataView(lh.buffer);
+    dv.setUint32(0,0x04034b50,true); dv.setUint16(4,20,true); dv.setUint16(6,0x0800,true);
+    dv.setUint16(8,0,true); dv.setUint16(10,0,true); dv.setUint16(12,0x2821,true);
+    dv.setUint32(14,crc,true); dv.setUint32(18,n,true); dv.setUint32(22,n,true);
+    dv.setUint16(26,nameB.length,true); dv.setUint16(28,0,true);
+    lh.set(nameB,30);
+    parts.push(lh); parts.push(f.data);
+
+    var ch=new Uint8Array(46+nameB.length);
+    var cv=new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true);
+    cv.setUint16(8,0x0800,true); cv.setUint16(10,0,true); cv.setUint16(12,0,true);
+    cv.setUint16(14,0x2821,true); cv.setUint32(16,crc,true);
+    cv.setUint32(20,n,true); cv.setUint32(24,n,true);
+    cv.setUint16(28,nameB.length,true); cv.setUint16(30,0,true); cv.setUint16(32,0,true);
+    cv.setUint16(34,0,true); cv.setUint16(36,0,true); cv.setUint32(38,0,true);
+    cv.setUint32(42,offset,true);
+    ch.set(nameB,46);
+    central.push(ch);
+    offset += lh.length + n;
+  });
+  var cdSize=central.reduce(function(a,b){ return a+b.length; },0);
+  var eocd=new Uint8Array(22);
+  var ev=new DataView(eocd.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(8,files.length,true);
+  ev.setUint16(10,files.length,true); ev.setUint32(12,cdSize,true);
+  ev.setUint32(16,offset,true);
+  return new Blob(parts.concat(central).concat([eocd]),{type:'application/zip'});
+}
+
+var Core={
+  FORMAT_TABLE:FORMAT_TABLE, decodeWord:decodeWord, makeWord:makeWord,
+  replaceMajorInWord:replaceMajorInWord, resetWord:resetWord,
+  scanBytes:scanBytes, scanAep:scanAep, scanFfx:scanFfx, scanAepx:scanAepx,
+  computeNewValues:computeNewValues, applyPatch:applyPatch,
+  labelOfMajor:labelOfMajor, formatByteOf:formatByteOf,
+  majorOfFormatByte:majorOfFormatByte, classifyFormatByte:classifyFormatByte,
+  inferNote:inferNote, LINEAR_BASE:LINEAR_BASE,
+  riskLevel:riskLevel, zipStore:zipStore, crc32:crc32
+};
+if(typeof window!=='undefined') window.AEPCore=Core;
+
+/* ============================================================
+   界面逻辑
+   ============================================================ */
+if(typeof document==='undefined') return;
+
+var $=function(id){ return document.getElementById(id); };
+var entries=[];   // {name, rel, u8, res}
+var outputs=[];   // {name, blob, status}
+
+function fmtSize(n){
+  if(n<1024) return n+' B';
+  if(n<1048576) return (n/1024).toFixed(1)+' KB';
+  return (n/1048576).toFixed(2)+' MB';
+}
+function esc(s){
+  return String(s).replace(/[&<>"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+  });
+}
+
+function addFiles(fileList){
+  var arr=Array.prototype.slice.call(fileList).filter(function(f){
+    return /\.(aep|ffx|aepx)$/i.test(f.name);
+  });
+  if(!arr.length){ alert('没有找到 .aep / .ffx 文件'); return; }
+  var pending=arr.length;
+  arr.forEach(function(f){
+    var rd=new FileReader();
+    rd.onload=function(){
+      var u8=new Uint8Array(rd.result);
+      var rel=f.webkitRelativePath || f.name;
+      var res=scanBytes(u8,f.name);
+      entries=entries.filter(function(e){ return e.rel!==rel; });
+      entries.push({name:f.name, rel:rel, u8:u8, res:res});
+      if(--pending===0) renderAll();
+    };
+    rd.readAsArrayBuffer(f);
+  });
+}
+
+function renderAll(){
+  var tb=$('tbody');
+  $('emptyTip').hidden = entries.length>0;
+  $('tableWrap').hidden = entries.length===0;
+  tb.innerHTML='';
+  entries.forEach(function(e){
+    var tr=document.createElement('tr');
+    var r=e.res, ver;
+    if(!r.ok) ver='—';
+    else if(r.extra.olderThanCs6) ver=OLDER_LABEL+'（无需降级）';
+    else if(r.ftype==='ffx') ver=r.srcMajor.toFixed(1)+' ('+labelOfMajor(r.srcMajor)+')';
+    else ver=r.srcVersion+' ('+labelOfMajor(r.srcMajor)+')';
+    if(r.ok && r.extra.inferred) ver+=' ⚠推断';
+    var st = r.ok ? '<span class="tag t-ok">可转换</span>'
+                  : '<span class="tag t-err" title="'+esc(r.error)+'">无法识别</span>';
+    tr.innerHTML =
+      '<td class="name" title="'+esc(e.rel)+'">'+esc(e.name)+'</td>'+
+      '<td><span class="tag t-info">'+r.ftype.toUpperCase()+'</span></td>'+
+      '<td>'+esc(ver)+'</td>'+
+      '<td>'+fmtSize(e.u8.length)+'</td>'+
+      '<td>'+st+'</td>';
+    tb.appendChild(tr);
+  });
+  // 目标版本下拉：只列出低于最高源版本的选项
+  var sel=$('target');
+  var prev=sel.value;
+  var maxMajor=0;
+  entries.forEach(function(e){ if(e.res.ok && e.res.srcMajor>maxMajor) maxMajor=e.res.srcMajor; });
+  sel.innerHTML='';
+  if(!maxMajor){
+    sel.innerHTML='<option value="">请先选择文件…</option>';
+    sel.disabled=true; $('run').disabled=true;
+    renderHex(null); return;
+  }
+  var opts=FORMAT_TABLE.filter(function(r){ return r[1] < maxMajor-1e-6; });
+  opts.forEach(function(r){
+    var o=document.createElement('option');
+    o.value=String(r[1]);
+    o.textContent=r[0]+'　格式字节 0x'+r[2].toString(16).toUpperCase().padStart(2,'0')+(r[3]?' ✓':'');
+    sel.appendChild(o);
+  });
+  sel.disabled=false;
+  if(prev && opts.some(function(r){ return String(r[1])===prev; })) sel.value=prev;
+  else sel.value=String(opts[opts.length-1][1]);   // 默认选最接近源的版本
+  $('run').disabled=false;
+  updRisk();
+  renderHex(entries.find(function(e){ return e.res.ok; })||null);
+}
+
+function updRisk(){
+  var sel=$('target');
+  if(!sel.value){ $('risk').textContent='—'; $('risk').className='tag t-gray'; return; }
+  var tgt=parseFloat(sel.value);
+  var maxMajor=0;
+  entries.forEach(function(e){ if(e.res.ok && e.res.srcMajor>maxMajor) maxMajor=e.res.srcMajor; });
+  var rl=riskLevel(maxMajor,tgt);
+  $('risk').textContent = rl[0] + '　' + Math.round((maxMajor-tgt)*10)/10 + ' 个大版本';
+  $('risk').className='tag '+rl[1];
+}
+
+function renderHex(e){
+  var w=$('hexWrap');
+  if(!e){ w.innerHTML='<div class="empty">选择文件后，这里会显示文件头部的十六进制，并高亮将要改写的位置。</div>'; return; }
+  var r=e.res, u8=e.u8;
+  // AEPX 的版本头不在文件最前面（前面是 XML 声明和注释），把窗口挪到命中处附近
+  var start=0, n=Math.min(64,u8.length);
+  if(r.hits.length){
+    var mn=Math.min.apply(null,r.hits.map(function(h){ return h.offset; }));
+    start=Math.max(0,mn-16);
+    n=Math.min(112,u8.length-start);
+  }
+  var marks={};
+  r.hits.forEach(function(h){
+    for(var i=0;i<h.length;i++) marks[h.offset+i]=1;
+  });
+  var html='';
+  for(var i=start;i<start+n;i++){
+    var b=u8[i].toString(16).toUpperCase().padStart(2,'0');
+    html += marks[i] ? '<span class="hi">'+b+'</span>' : b;
+    html += (((i-start)%16)===15) ? '\n' : ' ';
+  }
+  var notes=r.hits.map(function(h){
+    return '偏移 '+h.offset+'　'+h.note+'　0x'+
+      (h.length===1?h.oldValue.toString(16).toUpperCase().padStart(2,'0')
+                   :h.oldValue.toString(16).toUpperCase().padStart(8,'0'));
+  }).join('\n');
+  w.innerHTML =
+    '<div class="hint" style="margin-bottom:8px">'+esc(e.name)+
+    '　源版本 '+esc(r.srcVersion||r.srcMajor.toFixed(1))+
+    (r.srcWord?'　版本字 0x'+r.srcWord.toString(16).toUpperCase().padStart(8,'0')+
+      '　build '+r.srcBuild+'　'+(r.extra.platform||''):'')+'</div>'+
+    (r.extra.inferNote?'<div class="hint" style="margin-bottom:8px;color:#F59E0B">⚠ '+esc(r.extra.inferNote)+'</div>':'')+
+    '<div class="hint" style="margin-bottom:4px;opacity:.6">起始偏移 0x'+start.toString(16).toUpperCase()+
+    '（高亮处为将要改写的字节）</div>'+
+    '<div class="hexbox">'+html+'</div>'+
+    '<div class="hexbox" style="margin-top:8px;background:#0B1220">'+esc(notes)+'</div>';
+}
+
+function run(){
+  var tgt=parseFloat($('target').value);
+  var agg=$('aggressive').checked;
+  outputs=[];
+  var nConv=0,nSkip=0,nFail=0;
+  var tag='AE'+tgt.toFixed(1).replace('.','_');
+
+  entries.forEach(function(e){
+    var r=e.res;
+    if(!r.ok){
+      nFail++;
+      outputs.push({name:e.name,status:'failed',msg:r.error,blob:null});
+      return;
+    }
+    if(r.srcMajor<=tgt+1e-6){
+      nSkip++;
+      outputs.push({name:e.name,status:'skip',msg:'源版本不高于目标，原样复制',
+                    blob:new Blob([e.u8])});
+      return;
+    }
+    try{
+      var res2=scanBytes(e.u8,e.name);           // 重新扫描，避免污染原结果
+      computeNewValues(res2,tgt,agg);
+      var out=applyPatch(e.u8,res2);
+      if(out.length!==e.u8.length) throw new Error('补丁后长度变化');
+      var chk=scanBytes(out,e.name);
+      if(chk.ok && Math.abs(chk.srcMajor-tgt)>1e-6)
+        throw new Error('往返校验失败：读出 '+labelOfMajor(chk.srcMajor));
+      nConv++;
+      var changed=0;
+      for(var i=0;i<out.length;i++) if(out[i]!==e.u8[i]) changed++;
+      outputs.push({name:e.name,status:'ok',msg:'改写 '+res2.hits.length+' 处 / '+changed+' 字节',
+                    blob:new Blob([out]), verify:'通过'});
+    }catch(err){
+      nFail++;
+      outputs.push({name:e.name,status:'failed',msg:err.message,blob:null});
+    }
+  });
+
+  $('stat').innerHTML='改写 <b>'+nConv+'</b>　跳过 <b>'+nSkip+'</b>　失败 <b>'+nFail+'</b>';
+  var ob=$('outBody'); ob.innerHTML='';
+  outputs.forEach(function(o,i){
+    var tr=document.createElement('tr');
+    var st = o.status==='ok' ? '<span class="tag t-ok">已改写</span>'
+           : o.status==='skip' ? '<span class="tag t-gray">跳过</span>'
+           : '<span class="tag t-err">失败</span>';
+    var dl = o.blob ? '<button class="btn ghost sm" data-i="'+i+'">下载</button>' : '—';
+    tr.innerHTML='<td class="name">'+esc(o.name)+'</td><td>'+esc(o.msg)+'</td>'+
+      '<td>'+(o.verify||'—')+'</td><td>'+dl+'</td>';
+    ob.appendChild(tr);
+  });
+  ob.querySelectorAll('button[data-i]').forEach(function(b){
+    b.onclick=function(){
+      var o=outputs[+b.dataset.i];
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(o.blob);
+      a.download=o.name;
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+    };
+  });
+  $('outWrap').hidden=false;
+  $('dlZip').disabled = outputs.filter(function(o){return o.blob;}).length===0;
+}
+
+function dlZip(){
+  var files=outputs.filter(function(o){ return o.blob; });
+  if(!files.length) return;
+  var tag='AE'+parseFloat($('target').value).toFixed(1).replace('.','_');
+  var pending=files.length, list=[];
+  files.forEach(function(o){
+    var rd=new FileReader();
+    rd.onload=function(){
+      list.push({name:tag+'/'+o.name, data:new Uint8Array(rd.result)});
+      if(--pending===0){
+        var blob=zipStore(list);
+        var a=document.createElement('a');
+        a.href=URL.createObjectURL(blob);
+        a.download=tag+'.zip';
+        a.click();
+        setTimeout(function(){ URL.revokeObjectURL(a.href); },8000);
+      }
+    };
+    rd.readAsArrayBuffer(o.blob);
+  });
+}
+
+// 版本对照表
+(function(){
+  var tb=$('vtBody'); if(!tb) return;
+  FORMAT_TABLE.forEach(function(r){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+esc(r[0])+'</td><td>'+r[1].toFixed(1)+'</td>'+
+      '<td class="mono">0x'+r[2].toString(16).toUpperCase().padStart(2,'0')+'</td>'+
+      '<td>'+(r[3]?'<span class="tag t-ok">已实测</span>':'<span class="tag t-gray">按规律推定</span>')+'</td>';
+    tb.appendChild(tr);
+  });
+})();
+
+// 事件绑定
+var drop=$('drop');
+['dragenter','dragover'].forEach(function(ev){
+  drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add('over'); });
+});
+['dragleave','drop'].forEach(function(ev){
+  drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove('over'); });
+});
+drop.addEventListener('drop',function(e){
+  if(e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+});
+drop.addEventListener('click',function(){ $('fFile').click(); });
+$('pickFile').addEventListener('click',function(){ $('fFile').click(); });
+$('pickDir').addEventListener('click',function(){ $('fDir').click(); });
+$('fFile').addEventListener('change',function(){ addFiles(this.files); this.value=''; });
+$('fDir').addEventListener('change',function(){ addFiles(this.files); this.value=''; });
+$('clear').addEventListener('click',function(){
+  entries=[]; outputs=[]; renderAll();
+  $('outWrap').hidden=true; $('stat').innerHTML=''; $('dlZip').disabled=true;
+});
+$('target').addEventListener('change',updRisk);
+$('run').addEventListener('click',run);
+$('dlZip').addEventListener('click',dlZip);
+
+})();
+</script>
+</body>
+</html>
