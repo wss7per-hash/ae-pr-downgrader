@@ -7,7 +7,7 @@
 | 文件 | 用途 | 需要 Python |
 |---|---|---|
 | **`AEP-Downgrader.html`** | 网页版，双击用浏览器打开，拖文件进去就能用。**推荐** | 不需要 |
-| `index.html` | 与上一行是同一份文件，仅为了 GitHub Pages 入口而存在 | 不需要 |
+| `.github/workflows/pages.yml` | 自动把网页版部署到 GitHub Pages（每次 push 自动生成 `index.html`，仓库里不留副本） | — |
 | `aep_core.py` | 核心库（解析 / 改写 / 校验），可被其他脚本 import | 需要 |
 | `aep_cli.py` | 命令行工具，适合批量、递归、挂自动化 | 需要 |
 | `test_core.js` | 自检脚本（基础能力），用真实样本验证核心算法 | 需要 Node |
@@ -20,7 +20,12 @@
 
 ## 一、网页版（推荐，零安装）
 
-双击 `AEP-Downgrader.html` → 拖入文件 → 选目标版本 → 开始转换 → 下载。
+**在线版**：https://wss7per-hash.github.io/aep-downgrader/
+
+**本地版**：双击 `AEP-Downgrader.html` → 拖入文件 → 选目标版本 → 开始转换 → 下载。
+
+在线版由 GitHub Actions 在每次 push 时自动从 `AEP-Downgrader.html` 生成，两者永远同一份内容；
+即便如此，涉及工程文件仍建议用本地版，少一次网络往返。
 
 - 纯前端，断网也能用，**文件不会上传到任何地方**
 - 支持多选文件、整个文件夹（含子目录）

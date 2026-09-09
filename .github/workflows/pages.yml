@@ -1,0 +1,51 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# GitHub Pages 部署所需的最小权限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只允许一个部署，但不取消进行中的（避免半途中断导致线上残缺）
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # index.html 不入库：这里由 AEP-Downgrader.html 实时生成，
+      # 保证线上版本永远与仓库里的网页版一致，不存在两份文件不同步的问题
+      - name: 生成 Pages 站点
+        run: |
+          mkdir -p _site
+          cp AEP-Downgrader.html _site/index.html
+          cp LICENSE _site/LICENSE
+
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传站点产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
