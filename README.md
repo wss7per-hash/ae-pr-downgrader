@@ -1,6 +1,7 @@
-# AEP 降级器
+# AEP / PRPROJ 降级器
 
-不安装 After Effects，也能把 `.aep` / `.aepx` 工程和 `.ffx` 预设降到旧版本。
+不安装 After Effects / Premiere Pro，也能把 `.aep` / `.aepx` 工程、`.ffx` 预设
+和 **`.prproj` 工程**降到旧版本。
 
 > **在线版**：https://wss7per-hash.github.io/aep-downgrader/ （GitHub Pages，文件同样不出本机）
 
@@ -8,13 +9,29 @@
 |---|---|---|
 | **`AEP-Downgrader.html`** | 网页版，双击用浏览器打开，拖文件进去就能用。**推荐** | 不需要 |
 | `.github/workflows/pages.yml` | 自动把网页版部署到 GitHub Pages（每次 push 自动生成 `index.html`，仓库里不留副本） | — |
-| `aep_core.py` | 核心库（解析 / 改写 / 校验），可被其他脚本 import | 需要 |
-| `aep_cli.py` | 命令行工具，适合批量、递归、挂自动化 | 需要 |
-| `test_core.js` | 自检脚本（基础能力），用真实样本验证核心算法 | 需要 Node |
-| `test_html_v2.js` | 自检脚本（26.x / AEPX），验证网页版核心逻辑 | 需要 Node |
-| `test_v2.py` | 自检脚本（26.x / AEPX），验证 Python 核心库 | 需要 |
+| `aep_core.py` | AE 核心库（解析 / 改写 / 校验），可被其他脚本 import | 需要 |
+| `prproj_core.py` | **PR 核心库**（gzip 解包 / XML 改写 / 回包 / 校验） | 需要 |
+| `aep_cli.py` | 命令行工具，**按扩展名自动分派 AE / PR**，适合批量、递归、挂自动化 | 需要 |
+| `test_core.js` | 自检脚本（AE 基础能力），用真实样本验证核心算法 | 需要 Node |
+| `test_html_v2.js` | 自检脚本（AE 26.x / AEPX），验证网页版核心逻辑 | 需要 Node |
+| `test_v2.py` | 自检脚本（AE 26.x / AEPX），验证 Python 核心库 | 需要 |
+| `test_prproj.js` | **PR 自检**（网页版核心逻辑：gzip / 版本改写 / 自动分派） | 需要 Node |
+| `test_prproj.py` | **PR 自检**（Python 核心库 + 文件级 + 幂等性） | 需要 |
 
 两个版本（HTML / Python）共用同一套算法，已验证**逐字节输出一致**。
+
+### 两种格式，两套版本体系
+
+| | After Effects | Premiere Pro |
+|---|---|---|
+| 扩展名 | `.aep` / `.aepx` / `.ffx` | `.prproj` |
+| 容器 | RIFX（大端 RIFF）二进制 / XML | **gzip 压缩的 XML**（CS6 之后） |
+| 版本标记 | `svap` + `head` 两处版本字 + 格式字节 | **只有一处**：`<Project ... Version="N">` |
+| 改动量 | 数个字节（默认 5 字节） | 1 个数字 |
+| 版本体系 | major 11.x–26.x | 工程格式号 26–45（**与 AE 不通用**） |
+
+> ⚠ **AE 与 PR 的版本号互不通用**，所以两者**不能混在一批里处理**。
+> 命令行混放时会各走各的路径；网页版检测到混合会**禁用转换**并提示分开处理。
 
 ---
 
@@ -29,21 +46,36 @@
 
 - 纯前端，断网也能用，**文件不会上传到任何地方**
 - 支持多选文件、整个文件夹（含子目录）
+- **自动识别 `.aep` / `.ffx` / `.aepx` / `.prproj`**，目标版本下拉按文件类型自动切换
 - 自动识别源版本，只列出比它低的目标版本
 - 外推识别的版本（如 26.x）会在列表里标注「⚠推断」，体检面板给出提示
 - 结果可单个下载，也可打包成 ZIP
-- 内置「体检」面板，直接看到要改的是哪几个字节（高亮显示）
+- 内置「体检」面板，直接看到要改的是哪几个字节（AE）或哪一行 XML（PR）
+
+> 网页版处理 `.prproj` 需要浏览器的 `DecompressionStream` / `CompressionStream`（gzip）：
+> **Chrome / Edge 80+、Safari 16.4+、Firefox 113+**。不支持的浏览器会给出明确提示，
+> 此时请用命令行版。
 
 ## 二、命令行版
 
+**按扩展名自动分派**，`.prproj` 走 PR 路径，其余走 AE 路径，用法完全一致：
+
 ```bash
-# 查看文件版本信息（不改动文件）
+# 查看文件版本信息（不改动文件）—— AE 和 PR 都可以
 python aep_cli.py info "D:\proj\demo.aep"
+python aep_cli.py info "D:\proj\demo.prproj"
 
 # 单个文件降到 AE 2024，输出到源目录旁的 AE24_0 子目录
 python aep_cli.py conv "D:\proj\demo.aep" --to 2024
 
+# PR 工程降到 Premiere 2024（输出子目录标签是 PR_V42）
+python aep_cli.py conv "D:\proj\demo.prproj" --to 2024
+
+# PR 工程降到「通用兼容」（Version=1，任何 Premiere 都能打开，最保险）
+python aep_cli.py conv "D:\proj\demo.prproj" --to any
+
 # 整个目录递归处理，输出到指定目录，保持目录结构
+# （AE 与 PR 混放时会各自按自己的目标转换）
 python aep_cli.py conv "D:\proj" --to 2023 --out "D:\out"
 
 # 试运行，只看会改什么，不写盘
@@ -52,20 +84,21 @@ python aep_cli.py conv "D:\proj" --to 2024 --dry-run
 # 就地覆盖（会先自动备份成 .bak）
 python aep_cli.py conv "D:\proj" --to 2024 --in-place
 
-# 列出所有支持的目标版本
+# 列出所有支持的目标版本（AE 表 + PR 表一起打印）
 python aep_cli.py versions
 ```
 
-目标版本可以写 `2024` / `cs6` / `cc2018` / `22` 等，也接受纯数字 major（如 `24.0`）。
+目标版本可以写 `2024` / `cs6` / `cc2018` / `22` 等，也接受纯数字 major（如 `24.0`）；
+PR 额外支持 **`any`**（或 `1`），即通用兼容兜底。
 
 参数：`--out` 输出目录 · `--in-place` 就地 · `--flat` 不保留子目录 ·
-`--aggressive` 激进模式 · `--dry-run` 试运行 · `--no-recursive` 不递归
+`--aggressive` 激进模式（**仅对 AE 生效**）· `--dry-run` 试运行 · `--no-recursive` 不递归
 
 **原文件永远不动**，输出的是副本。
 
 ---
 
-## 三、原理
+## 三、原理 · After Effects（`.aep` / `.aepx` / `.ffx`）
 
 AEP / FFX 都是 **RIFX**（大端 RIFF）容器。AE 打开文件时先读工程头里的版本号，
 **高于自身就直接拒载**，根本不检查内容。所以"降级"就是改写版本标记，让旧版 AE 愿意解析。
@@ -187,9 +220,92 @@ major = (高 6 位 << 3) | 低 3 位
 
 ---
 
-## 四、必须知道的局限
+## 四、原理 · Premiere Pro（`.prproj`）
 
-**这是"改版本标记"，不是真正的格式转换。** AE 愿意打开 ≠ 内容完整。
+**比 AE 简单得多**：CS6 之后的 `.prproj` 就是 **gzip 压缩的 XML**。
+降级 = 解压 → 改一个数字 → 重新 gzip。
+
+```
+demo.prproj
+  └─ gzip ──> <PremiereData Version="3">
+                 <Project ObjectID="1" ClassID="62ad66dd-…" Version="43">   ← 就是这里
+                   <Name>…</Name>
+                   <ProjectViewState Version="7" ObjectRef="2"/>           ← 不是这里
+                   …
+```
+
+Premiere 打开工程时先读根 `<Project>` 上的 `Version` 属性，
+**比自身支持的大就弹「此项目由更新版本的 Adobe Premiere Pro 创建」并拒载**，内容一概不查。
+所以改写这**一个数字**就够了。
+
+### 精确定位的两个坑
+
+1. **必须锚定 `<Project` 标签本身**。文件里还有 `<ProjectViewState Version="7">` 等
+   一大堆带 `Version` 的元素，粗糙地替换第一个 `Version="…"` 会改错地方。
+   用的正则是 `<Project\s[^>]*?\bVersion\s*=\s*["'](\d+)["']` —— 标签名后必须有空白，
+   于是 `<ProjectViewState …>` 天然不匹配，`<Project ObjectRef="1"/>`（无 Version）也会自然跳过。
+2. **从后往前替换**。命中可能有多个，正向替换会让后续偏移错位。
+
+### 输出是否重新压缩
+
+保持与源文件一致：
+
+| 源文件 | 输出 |
+|---|---|
+| gzip 压缩 | 重新 gzip（`mtime=0`，**幂等**：同样输入永远同样输出字节） |
+| 纯 XML（未压缩） | 纯 XML，不压缩 |
+
+Premiere 两种都能读，所以照原样还回去最安全。
+
+### `.prproj` 版本对照表（工程格式号）
+
+| 版本 | Version | | 版本 | Version |
+|---|---|---|---|---|
+| CC (2013) | 26 | | 2020 | 38 |
+| CC 2014 | 27 | | 2021 | 39 |
+| CC 2015.1 | 29 | | 2022 | 40 |
+| CC 2015.2 | 30 | | 2023 | 41 |
+| CC 2015.4 | 31 | | 2024 | 42 |
+| CC 2017 | 32 | | **2025** | **43** |
+| CC 2017.1 | 33 | | **2026** | **45** ⚠ 见下 |
+| CC 2018 | 34 | | | |
+| CC 2018.1 | 35 | | | |
+| CC 2019 | 36 | | | |
+| CC 2019.1 | 37 | | | |
+
+> 注意这是**工程格式号**，不是软件版本号 —— 两者不相等（2025 软件 = Version 43）。
+> 2026 直接跳到 45（没有 44），这是 Premiere 官方的编号跳变，不是笔误。
+
+**来源**：[helmut4 官方文档](https://docs.helmut4.io/) 的 Premiere 工程版本表
+与 [Just Solve the File Format Problem](http://fileformats.archiveteam.org/wiki/Premiere_Project)
+交叉比对，两者在 2018–2024 区间完全一致。
+
+### 不放心？用「通用兼容 Version=1」
+
+上面的年份 → Version 映射**全部来自文献，本机没有安装 Premiere Pro，没有实机验证过**。
+因此提供一个**不依赖对照表**的兜底选项：
+
+```
+--to any    （网页版里是列表最后一项「通用兼容 Version=1」）
+```
+
+任何版本的 Premiere 都能打开 `Version=1` 的工程（会提示"转换工程"后打开）。
+**成功率最高**，代价是 Premiere 会把工程当作旧格式做一次转换。
+如果你的 Premiere 版本不在对照表里，或降级后打不开 —— 选它。
+
+### Premiere 2026（Version 45）的额外风险
+
+2026 的工程采用**稀疏序列化**：会省略旧版本期望存在的字段。
+只把 `45` 改成 `42` 而不补回这些字段，旧版 Premiere 可能报「工程损坏」。
+
+工具检测到 `Version >= 45` 时会打 `sparse_2026` 标记并给出警告。
+这种情况**强烈建议直接用 `any`（Version=1）**，让 Premiere 自己走完整的转换流程。
+
+---
+
+## 五、必须知道的局限
+
+**这是"改版本标记"，不是真正的格式转换。** 软件愿意打开 ≠ 内容完整。
 
 - 目标版本不支持的**新效果、新属性、表达式、第三方插件**仍会丢失或报错
 - Adobe 官方的「另存为低版本」只支持**回退 2 个大版本**，跨度越大风险越高
@@ -206,23 +322,45 @@ major = (高 6 位 << 3) | 低 3 位
 - 老式 `FFX1` 预设（`06 00 00 00` 开头）不支持，会自动跳过
 - 转换后用**目标版本的 AE 实机打开确认**，这是唯一可靠的验证
 
+**Premiere Pro（`.prproj`）** 的额外说明：
+
+- **本机未安装 Premiere Pro，也没有真实 `.prproj` 样本**，
+  全部验证基于**合成样本**（gzip / 纯 XML / 含中文 / Version=1 兜底 / 各类错误分支，共 115 项自检）。
+  **请务必先用副本试开。**
+- 年份 → Version 的映射是**文献值**（helmut4 + Just Solve 交叉比对），未经实机验证；
+  不确定就选 `any`（Version=1）
+- **2026（Version 45）是稀疏序列化**，仅改版本号可能让旧版报「工程损坏」→ 建议用 `any`
+- 与 AE 一样：目标版本不支持的新功能（新效果、新格式、扩展）仍会丢失
+- AE 与 PR **不能混在一批处理**（版本号体系不同），网页版会检测并提示
+
 ---
 
-## 五、自检
+## 六、自检
 
 ```bash
+# After Effects
 node test_core.js        # 基础能力（位域 / AEP / FFX / ZIP / 版本边界）    39 项
 node test_html_v2.js     # 网页版：26.x + AEPX                             26 项
 python test_v2.py        # Python 版：26.x + AEPX + 回归                    48 项
+
+# Premiere Pro
+node test_prproj.js      # 网页版 PR 核心：gzip / 改写 / 自动分派 / 幂等    42 项
+python test_prproj.py    # Python PR 核心 + 文件级 + 风险等级 + 幂等        73 项
 ```
 
-覆盖：位域解码与合成、AEP/FFX/AEPX 定位、字节级差异、中文偏移正确性、
+AE 覆盖：位域解码与合成、AEP/FFX/AEPX 定位、字节级差异、中文偏移正确性、
 外推版本的交叉校验（一致才采信 / 不一致拒绝）、无法确认时拒绝改写、ZIP 生成。
-当前 **113 项全部通过**，且网页版与 Python 版**逐字节输出一致**。
+
+PR 覆盖：gzip 解包与回包、纯 XML 与压缩两种情况、`<Project>` 精确定位
+（不误伤 `ProjectViewState`）、中文保留、2026 稀疏标记、目标解析（`2024`/`cc2018`/`any`/纯数字）、
+风险等级、文件级转换（目录结构 / dry-run / 原文件不动 / 2026 警告）、幂等性、
+错误分支（非 gzip / 非 PR XML / 缺 Version / 损坏 gzip 均**返回错误而非抛异常**）。
+
+当前 **228 项全部通过**，且网页版与 Python 版**逐字节输出一致**。
 
 ---
 
-## 六、典型场景
+## 七、典型场景
 
 **把 AE 2025 的工程发给用 AE 2023 的同事**
 ```bash
@@ -248,3 +386,28 @@ python aep_cli.py conv "D:\proj" --to 2023     # .aep 和 .aepx 可以混在一�
 python aep_cli.py conv "D:\proj" --to 2024 --dry-run
 ```
 只打印会改什么，不写盘。
+
+**把 Premiere 2025 的工程发给用 Premiere 2023 的同事**
+```bash
+python aep_cli.py conv "D:\工程\婚礼片头.prproj" --to 2023
+```
+输出 `婚礼片头.prproj`（Version 43 → 41）到源目录旁的 `PR_V41` 子目录，原文件不动。
+
+**对方装的是哪版 Premiere 不清楚**
+```bash
+python aep_cli.py conv "D:\工程\婚礼片头.prproj" --to any
+```
+降到 `Version=1`，任何 Premiere 都能打开（会提示转换工程），**成功率最高**。
+
+**Premiere 2026 的工程**（⚠ 稀疏序列化，风险最高）
+```bash
+python aep_cli.py info "D:\工程\demo.prproj"     # 先看是不是 Version >= 45
+python aep_cli.py conv "D:\工程\demo.prproj" --to any   # 建议直接用通用兼容
+```
+
+**AE 与 PR 混在一个目录里**
+```bash
+python aep_cli.py conv "D:\proj" --to 2024 --out "D:\out"
+```
+命令行会按扩展名各自分派：`.aep/.ffx/.aepx` 按 AE 的 2024，`.prproj` 按 PR 的 2024，
+互不干扰。网页版遇到混合批次会**禁用转换并提示分开处理**。
