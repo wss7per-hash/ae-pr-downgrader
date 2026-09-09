@@ -410,6 +410,21 @@
   /* 卡片 2 的关键帧曲线装饰 */
   .timeline-deco{position:absolute;right:22px;bottom:12px;width:250px;opacity:.9;pointer-events:none}
   @media (max-width:820px){.timeline-deco{display:none}}
+  /* 工程体检 */
+  tr.detail td{padding:0!important;background:#0E1326;border-top:1px dashed #232a44}
+  .asset-card{padding:14px 18px}
+  .asset-head{font-weight:700;margin-bottom:10px;color:#C9C3F0}
+  .asset-row{display:flex;gap:12px;padding:5px 0;align-items:flex-start;font-size:13px}
+  .asset-k{flex:0 0 132px;color:#8B91B4;font-weight:600}
+  .asset-v{flex:1;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .chip{display:inline-block;background:#1B2240;border:1px solid #2C3566;color:#C9C3F0;
+        font-size:12px;padding:2px 9px;border-radius:7px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chip.warn{background:#3A2A12;border-color:#6B4A1A;color:#FBC56B}
+  .dim{color:#6B7194;font-size:12px}
+  .asset-risks{margin-top:10px;padding-top:10px;border-top:1px solid #1E2440}
+  .asset-risks>b{color:#FBC56B;font-size:13px}
+  .risk{font-size:12.5px;color:#D7D2F0;margin-top:6px;line-height:1.5;padding-left:14px;position:relative}
+  .risk:before{content:"!";position:absolute;left:0;color:#F59E0B;font-weight:800}
 </style>
 </head>
 <body data-page-node-id="l0HtAly6HpRa1Gvak9pb7n">
@@ -553,7 +568,7 @@
     <div id="tableWrap" hidden data-page-node-id="KUGpt30GvCFqUXvNVoJZJ0">
       <table data-page-node-id="2oAlg9OETdqSENOTPs0Xzx">
         <thead data-page-node-id="tnvFHX4fvTsRzpLSqqjYEc"><tr data-page-node-id="dTzS6BAe1vRL7NumCNxXkG">
-          <th data-page-node-id="i8ERAjwKtShgfOPULtXWBw">文件</th><th data-page-node-id="7iJvwdQAgrRRvf8icwks9Y">类型</th><th data-page-node-id="8vYdWdEFHVoFT2QN9i7xOF">检测到的源版本</th><th data-page-node-id="nHxVYBLxNRoiZcBNO2eMVt">大小</th><th data-page-node-id="fBfjDFvEGmLGdpfqdUAeWY">状态</th>
+          <th data-page-node-id="i8ERAjwKtShgfOPULtXWBw">文件</th><th data-page-node-id="7iJvwdQAgrRRvf8icwks9Y">类型</th><th data-page-node-id="8vYdWdEFHVoFT2QN9i7xOF">检测到的源版本</th><th data-page-node-id="nHxVYBLxNRoiZcBNO2eMVt">大小</th><th data-page-node-id="fBbjDFvEGmLGdpfqdUAeWY">状态</th><th>体检</th>
         </tr></thead>
         <tbody id="tbody" data-page-node-id="8EnCPKAs2dLsx0Kp3iZeFf"></tbody>
       </table>
@@ -1330,7 +1345,7 @@ function renderAll(){
   $('emptyTip').hidden = entries.length>0;
   $('tableWrap').hidden = entries.length===0;
   tb.innerHTML='';
-  entries.forEach(function(e){
+  entries.forEach(function(e,i){
     var tr=document.createElement('tr');
     var r=e.res, ver;
     if(!r.ok) ver='—';
@@ -1342,13 +1357,18 @@ function renderAll(){
     if(r.ok && r.extra.sparse2026) ver+=' ⚠2026';
     var st = r.ok ? '<span class="tag t-ok">可转换</span>'
                   : '<span class="tag t-err" title="'+esc(r.error)+'">无法识别</span>';
+    var canAudit = r.ok;
     tr.innerHTML =
       '<td class="name" title="'+esc(e.rel)+'">'+esc(e.name)+'</td>'+
       '<td><span class="tag t-info">'+r.ftype.toUpperCase()+'</span></td>'+
       '<td>'+esc(ver)+'</td>'+
       '<td>'+fmtSize(e.u8.length)+'</td>'+
-      '<td>'+st+'</td>';
+      '<td>'+st+'</td>'+
+      '<td>'+(canAudit?'<button class="btn ghost sm" data-asset="'+i+'">体检</button>':'—')+'</td>';
     tb.appendChild(tr);
+  });
+  tb.querySelectorAll('button[data-asset]').forEach(function(b){
+    b.onclick=function(){ window.toggleAsset(+b.dataset.asset); };
   });
 
   // 判断当前列表的文件类型：AE 与 PR 混在一起时无法共用一个目标版本，要求分开处理
@@ -1423,6 +1443,108 @@ function renderAll(){
   updRisk();
   renderHex(entries.find(function(e){ return e.res.ok; })||null);
 }
+window.__markerB=true;
+// ===== 工程体检（资产扫描）=====
+// 与 Python scan_assets.py 同套思路：从工程里提取「协作交付与降级时最易丢东西」的依赖。
+// 基于字符串启发式，非工程软件权威解析；准确结论以目标版本软件实机打开为准。
+window.__beforeIIFE=true; window.AssetScan=(function(){
+var ASSET_EXPR=['thisComp','thisLayer','thisProperty','thisProject','wiggle(','loopIn(','loopOut(','valueAtTime','posterizeTime','timeRemap','sourceRectAtTime','toWorld(','toComp(','fromWorld(','effect(','hasParent','thisComp.layer(','position.value','linear(','clamp(','seedRandom','random('];
+var ASSET_ADBE_RE=/\bADBE [A-Za-z0-9 .\-/]+\b/g;
+var ASSET_TP=['Trapcode','Red Giant','Particular','Form','Mir','Shine','Starglow','Video Copilot','Element 3D','Optical Flares','Saber','Twitch','Boris','BCC','Continuum','Mocha','Sapphire','Genarts','Rowbytes','Frischluft','Depth of Field','RE:Vision','Twixtor','Neat Video','Knoll','Unmult','Digieffects','Damage','VC Reflect','Real Grain','Pixel Filth','Sound Keys','Looks','Colorista','Denoiser','PlaneSpace','Lux','Horizon'];
+var ASSET_FONT=['Adobe','Source Han','思源','Microsoft','SimHei','SimSun','黑体','宋体','楷体','Arial','Helvetica','Times','Courier','Calibri','Noto','PingFang','Hiragino','STHeiti','Heiti','FangSong','Myriad','Minion','Georgia','Verdana','Tahoma','Roboto','苹方','华文','文泉驿','DIN','Akzidenz'];
+var ASSET_PATH_RE=new RegExp('[A-Za-z]:\\\\[^\\x00-\\x1f\\r\\n]{4,}\\.\\w{2,4}|/(?:[^/\\x00-\\x1f]{1,}/){2,}[^/\\x00-\\x1f]+\\.\\w{2,4}','g');
+var ASSET_EXT={'png':1,'jpg':1,'jpeg':1,'psd':1,'ai':1,'tif':1,'tiff':1,'gif':1,'bmp':1,'exr':1,'mov':1,'mp4':1,'avi':1,'mxf':1,'wmv':1,'m4v':1,'r3d':1,'ari':1,'braw':1,'wav':1,'mp3':1,'aif':1,'aiff':1,'m4a':1,'wma':1,'flac':1,'ogg':1,'aep':1,'aepx':1,'prproj':1,'ppj':1,'eps':1,'pdf':1,'svg':1};
+
+function extractAsciiJS(u8,minLen){
+  minLen=minLen||4; var out=[],buf=[];
+  for(var i=0;i<u8.length;i++){
+    var b=u8[i];
+    if(b>=0x20&&b<0x7f) buf.push(String.fromCharCode(b));
+    else { if(buf.length>=minLen) out.push(buf.join('')); buf=[]; }
+  }
+  if(buf.length>=minLen) out.push(buf.join(''));
+  return out;
+}
+function extractWideJS(u8,minLen){
+  minLen=minLen||3; var out=[],buf=[],i=0,n=u8.length;
+  while(i<n-1){
+    var c=u8[i],nx=u8[i+1];
+    if(c>=0x20&&c<0x7f&&nx===0){ buf.push(String.fromCharCode(c)); i+=2; }
+    else { if(buf.length>=minLen) out.push(buf.join('')); buf=[]; i++; }
+  }
+  if(buf.length>=minLen) out.push(buf.join(''));
+  return out;
+}
+function uniqJS(arr,limit){
+  limit=limit||60; var seen={},out=[];
+  for(var k=0;k<arr.length;k++){ var x=arr[k].trim(); if(x&&!seen[x]){ seen[x]=1; out.push(x); if(out.length>=limit) break; } }
+  return out;
+}
+function scanAssetsJS(u8,res,path){
+  var kind=res.ftype||'unknown';
+  var versionLabel='';
+  if(!res.ok) versionLabel='未知';
+  else if(res.ftype==='prproj') versionLabel='Version '+res.srcNumber+' ('+res.srcLabel+')';
+  else versionLabel=res.srcVersion+' ('+labelOfMajor(res.srcMajor)+')';
+  var strings=[], blob='';
+  if(res.ftype==='prproj' && res.xml){ blob=res.xml; strings=[blob]; }
+  else { strings=extractAsciiJS(u8).concat(extractWideJS(u8)); blob=strings.join('\n'); }
+  var adobe=uniqJS((blob.match(ASSET_ADBE_RE)||[]).map(function(s){return s.trim();}));
+  var low=blob.toLowerCase();
+  var tp=uniqJS(ASSET_TP.filter(function(h){ return low.indexOf(h.toLowerCase())>=0; }));
+  var fonts=uniqJS(ASSET_FONT.filter(function(h){ return low.indexOf(h.toLowerCase())>=0; }));
+  var paths=[], m; ASSET_PATH_RE.lastIndex=0;
+  while((m=ASSET_PATH_RE.exec(blob))){ var ext=m[0].split('.').pop().toLowerCase(); if(ASSET_EXT[ext]) paths.push(m[0].trim()); }
+  paths=uniqJS(paths);
+  var expr=ASSET_EXPR.filter(function(t){ return blob.indexOf(t)>=0; }).length;
+  if(res.ftype==='prproj' && res.xml){
+    var fm; var fRe=/(?:<Font[^>]*>)([^<]{1,40})<\/Font>/g;
+    while((fm=fRe.exec(res.xml))){ fonts.push(fm[1].trim()); }
+    var pm; var pRe=/(?:<(MediaPath|FilePath|ClipPath|AudioPath)[^>]*>)([^<]{1,260})<\/\1>/g;
+    while((pm=pRe.exec(res.xml))){ if(pm[2].indexOf('.')>=0) paths.push(pm[2].trim()); }
+    fonts=uniqJS(fonts); paths=uniqJS(paths);
+  }
+  var risks=[];
+  if(tp.length) risks.push('含 '+tp.length+' 个疑似第三方插件（'+tp.slice(0,3).join('、')+' 等）：目标机器需安装相同版本插件，否则效果丢失或被禁用。');
+  if(expr>0) risks.push('含表达式（'+expr+' 处特征）。降级后旧版一般保留表达式，但新版本才有的函数/方法会报错。');
+  if(paths.length) risks.push('引用 '+paths.length+' 个素材路径。降级只改版本标记、素材不动，确认目标机器上这些路径仍可访问（或已重新链接）。');
+  if(fonts.length) risks.push('使用 '+fonts.length+' 种字体（'+fonts.slice(0,3).join('、')+' 等）。目标机器缺字体时会被替换、版面走样。');
+  if(!risks.length) risks.push('未检测到明显高风险依赖（字符串扫描可能遗漏专有编码内容，最终以目标版本软件实机打开为准）。');
+  return {kind:kind,versionLabel:versionLabel,adobeEffects:adobe,thirdParty:tp,fonts:fonts,mediaPaths:paths,hasExpression:expr>0,expressionCount:expr,risks:risks,notes:[]};
+}
+function assetHtml(rep){
+  function row(title,items,emptyTxt){
+    if(!items||!items.length) return '<div class="asset-row"><span class="asset-k">'+title+'</span><span class="asset-v dim">'+emptyTxt+'</span></div>';
+    var chips=items.slice(0,14).map(function(x){ return '<span class="chip">'+esc(x)+'</span>'; }).join('');
+    var more = items.length>14 ? ' <span class="dim">+'+(items.length-14)+'</span>' : '';
+    return '<div class="asset-row"><span class="asset-k">'+title+'</span><span class="asset-v">'+chips+more+'</span></div>';
+  }
+  var h='';
+  h+=row('AE 内置效果', rep.adobeEffects, '未检测到 ADBE 效果名');
+  h+=row('第三方插件（疑似）', rep.thirdParty, '无');
+  h+=row('字体', rep.fonts, '无');
+  h+=row('素材路径', rep.mediaPaths, '无');
+  h+='<div class="asset-row"><span class="asset-k">表达式</span><span class="asset-v">'+
+     (rep.hasExpression?'<span class="chip warn">是 · '+rep.expressionCount+' 处</span>':'否')+'</span></div>';
+  h+='<div class="asset-risks"><b>风险提示</b>'+rep.risks.map(function(r){ return '<div class="risk">'+esc(r)+'</div>'; }).join('')+'</div>';
+  return h;
+}
+function toggleAsset(idx){
+  var e=entries[idx]; if(!e) return;
+  var tb=$('tbody');
+  var det=tb.querySelector('tr.detail[data-for="'+idx+'"]');
+  if(det){ det.remove(); return; }
+  if(!e.asset) e.asset=scanAssetsJS(e.u8,e.res,e.name);
+  var tr=document.createElement('tr');
+  tr.className='detail'; tr.setAttribute('data-for',idx);
+  tr.innerHTML='<td colspan="6"><div class="asset-card"><div class="asset-head">工程体检 · '+
+    esc(e.name)+'　<span class="dim">'+esc(e.asset.versionLabel)+'</span></div>'+assetHtml(e.asset)+'</div></td>';
+  var rows=Array.prototype.slice.call(tb.querySelectorAll('tr:not(.detail)'));
+  if(rows[idx]) rows[idx].after(tr); else tb.appendChild(tr);
+}
+
+  return { scan: scanAssetsJS, html: assetHtml, toggle: toggleAsset };
+})();
 
 function updRisk(){
   var sel=$('target');
