@@ -1,9 +1,9 @@
-# AEP / PRPROJ 降级器
+# AE / PR 降级器（AEP / PRPROJ Downgrader）
 
 不安装 After Effects / Premiere Pro，也能把 `.aep` / `.aepx` 工程、`.ffx` 预设
 和 **`.prproj` 工程**降到旧版本。
 
-> **在线版**：https://wss7per-hash.github.io/aep-downgrader/ （GitHub Pages，文件同样不出本机）
+> **在线版**：https://wss7per-hash.github.io/ae-pr-downgrader/ （GitHub Pages，文件同样不出本机）
 
 | 文件 | 用途 | 需要 Python |
 |---|---|---|
@@ -37,7 +37,7 @@
 
 ## 一、网页版（推荐，零安装）
 
-**在线版**：https://wss7per-hash.github.io/aep-downgrader/
+**在线版**：https://wss7per-hash.github.io/ae-pr-downgrader/
 
 **本地版**：双击 `AEP-Downgrader.html` → 拖入文件 → 选目标版本 → 开始转换 → 下载。
 
