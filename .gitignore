@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 本地缓存与临时产物
+_shot/
+_t/
+_test/
+*.tmp
+*.bak
+
+# WorkBuddy 项目数据（含本地记忆、绝对路径，不上传）
+.workbuddy/
+
+# 系统
+.DS_Store
+Thumbs.db
