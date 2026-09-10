@@ -425,6 +425,12 @@
   .asset-risks>b{color:#FBC56B;font-size:13px}
   .risk{font-size:12.5px;color:#D7D2F0;margin-top:6px;line-height:1.5;padding-left:14px;position:relative}
   .risk:before{content:"!";position:absolute;left:0;color:#F59E0B;font-weight:800}
+  /* 视图切换与工程体检 */
+  .tabs{display:flex;gap:8px;justify-content:center;margin:24px auto 10px;max-width:720px;position:relative;z-index:2}
+  .tab{appearance:none;-webkit-appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.72);color:var(--ink-2);font-size:14px;font-weight:650;padding:9px 22px;border-radius:999px;cursor:pointer;transition:.18s;backdrop-filter:blur(6px)}
+  .tab:hover{background:#fff;color:var(--brand)}
+  .tab.active{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 8px 22px -8px rgba(108,92,231,.45)}
+  .drop.drag{transform:scale(1.01);border-color:var(--brand);box-shadow:0 0 0 3px rgba(108,92,231,.18),0 18px 42px -16px rgba(108,92,231,.25)}
 </style>
 </head>
 <body data-page-node-id="l0HtAly6HpRa1Gvak9pb7n">
@@ -520,7 +526,14 @@
   </div>
 </header>
 
+<!-- ====== Tab 切换 ====== -->
+<div class="tabs" role="tablist" aria-label="功能切换" data-page-node-id="Z9mV6Yc4k1h7WqLxR8pT3N">
+  <button class="tab active" data-tab="downgrader" role="tab" aria-selected="true" data-page-node-id="X2nK9Pj5Qb8sF3dG7hT6Yc">降级工程</button>
+  <button class="tab" data-tab="audit" role="tab" aria-selected="false" data-page-node-id="L4wM7Rk6Nd2vE5sA9cB1Up">工程体检</button>
+</div>
+
 <!-- ====== 1 选择文件 ====== -->
+<div data-view="downgrader" class="view active" data-page-node-id="V7pQ3Wk8Hs5jF2dG6tY9Nx">
 <div class="card" data-page-node-id="PxIigCcAYzSb55Imby8bFR">
   <div class="card-head" data-page-node-id="WP3I4l08mcMRClxAXozVDd">
     <div class="step" data-page-node-id="JolPIiTlgaB1B9XWYaVZ44">1</div>
@@ -692,6 +705,44 @@
   本工具不会上传任何文件，全部处理在你的浏览器内完成。<br data-page-node-id="CB9FEFvzMUuFVi1BEJi6Tk">
   转换结果请务必用目标版本的 After Effects / Premiere Pro 实机打开确认。
 </footer>
+
+</div><!-- /downgraderView -->
+
+<!-- ====== 工程体检（独立视图） ====== -->
+<div data-view="audit" class="view" data-page-node-id="S1kP5Yj7Qb3vF8dG2hT6Nw">
+<div class="card" data-page-node-id="T4wM9Rk2Nd7vE1sA5cB0Up">
+  <div class="card-head" data-page-node-id="U6nK8Pj1Qb4sF9dG3hT7Yc">
+    <div class="step" style="background:var(--warn);color:#fff" data-page-node-id="W5pQ3Wk6Hs9jF2dG4tY8Nx">✦</div>
+    <div class="tt" data-page-node-id="Y9mV6Yc3k1h7WqLxR7pT2N">
+      <h2 data-page-node-id="A2nK9Pj4Qb8sF3dG7hT6Yb">工程体检</h2>
+      <div class="st" data-page-node-id="C4wM7Rk5Nd2vE5sA9cB1Uo">扫描 .aep / .prproj / .ffx / .aepx，列出第三方插件、字体、素材路径、表达式</div>
+    </div>
+    <div class="card-corner" data-page-node-id="E6nK8Pj1Qb4sF9dG3hT7Ya">AUDIT</div>
+  </div>
+
+  <div class="drop" id="auditDrop" data-page-node-id="G8sA2Vc6Kp5jH4fD1tY7Mw">
+    <svg class="folder" viewBox="0 0 96 84" fill="none" aria-hidden="true" data-page-node-id="I0uC4Xe8Mr7lJ6hF3vY9Ow">
+      <defs data-page-node-id="K2wE6Zg0Ot9nL8jH5xY1Qy"><linearGradient id="ag1" x1="0" y1="0" x2="1" y2="1" data-page-node-id="M4yG8Bi2Qv1pN0kJ7zY3Sa"><stop offset="0" stop-color="#F59E0B" data-page-node-id="O6aI0Dk4Sx3rP2mL9bY5Uc"/><stop offset="1" stop-color="#D97706" data-page-node-id="Q8cK2Fm6Uz5tR4oN1dY7We"/></linearGradient><linearGradient id="ag2" x1="0" y1="0" x2="0" y2="1" data-page-node-id="S0uC4Xe8Mr7lJ6hF3vY9Ox"><stop offset="0" stop-color="#FCD34D" data-page-node-id="U2wE6Zg0Ot9nL8jH5xY1Qz"/><stop offset="1" stop-color="#F59E0B" data-page-node-id="W4yG8Bi2Qv1pN0kJ7zY3Sb"/></linearGradient></defs>
+      <path d="M8 20c0-4.4 3.6-8 8-8h20l8 9h28c4.4 0 8 3.6 8 8v35c0 4.4-3.6 8-8 8H16c-4.4 0-8-3.6-8-8V20z" fill="url(#ag2)" data-page-node-id="Y6aI0Dk4Sx3rP2mL9bY5Ud"/>
+      <path d="M8 32h80v32c0 4.4-3.6 8-8 8H16c-4.4 0-8-3.6-8-8V32z" fill="url(#ag1)" data-page-node-id="A8cK2Fm6Uz5tR4oN1dY7Wf"/>
+      <path d="M8 32h80v6H8z" fill="#fff" opacity=".22" data-page-node-id="C0uC4Xe8Mr7lJ6hF3vY9Oy"/>
+      <circle cx="72" cy="24" r="14" fill="#4AA8F0" stroke="#fff" stroke-width="3" data-page-node-id="E2wE6Zg0Ot9nL8jH5xY1Ra"/>
+      <path d="M72 18v12M66 24h12" stroke="#fff" stroke-width="3" stroke-linecap="round" data-page-node-id="G4yG8Bi2Qv1pN0kJ7zY3Sc"/>
+    </svg>
+    <p class="drop-title" data-page-node-id="I6nK8Pj7Qb4sF9dG3hT7Yd">把 .aep / .prproj / .ffx / .aepx 工程拖到这</p>
+    <p class="drop-hint" data-page-node-id="K8pQ5Wm9Hs2jF7dG1tY4Nx">支持一次拖入多个文件；也支持点击「选择文件夹…」，按文件名核对素材缺失</p>
+    <div class="drop-actions" data-page-node-id="M0sA7Vc4Kp8jH3fD6tY9Mw">
+      <button class="btn" id="auditPick" data-page-node-id="O2uC9Xe6Mr1lJ5hF8vY2Ow"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Q4wE0Zg8Ot3nL7jH0xY4Qy"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" data-page-node-id="S6yG2Bi0Qv5pN9kJ2zY6Sa"/><polyline points="17 8 12 3 7 8" data-page-node-id="U8aI4Dk2Sx7rP1mL4bY8Uc"/><line x1="12" y1="3" x2="12" y2="15" data-page-node-id="W0cK6Fm4Uz9tR3oN6dY0We"/></svg>选择文件…</button>
+      <button class="btn ghost" id="auditPickDir" data-page-node-id="Y2uC4Xe6Mr8lJ0hF3vY7Ow"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="A4wE6Zg0Ot1nL2jH5xY9Qy"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" data-page-node-id="C6yG8Bi2Qv3pN4kJ7zY1Sa"/></svg>选择文件夹…</button>
+      <button class="btn danger" id="auditClear" data-page-node-id="E8aI0Dk4Sx6rP2mL9bY5Ue">清空</button>
+    </div>
+    <input type="file" id="auditFile" multiple accept=".aep,.prproj,.ffx,.aepx" style="display:none" data-page-node-id="G0cK2Fm6Uz8tR4oN1dY7Wg">
+    <input type="file" id="auditDir" webkitdirectory directory multiple style="display:none" data-page-node-id="I2wE4Zg0Ot0nL6jH3xY1Qc">
+  </div>
+
+  <div id="auditReport" style="margin-top:18px" data-page-node-id="K4yG6Bi2Qv2pN8kJ5zY3Sd"></div>
+</div>
+</div><!-- /auditView -->
 
 </div>
 
