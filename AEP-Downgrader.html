@@ -422,9 +422,9 @@
   .chip.warn{background:#3A2A12;border-color:#6B4A1A;color:#FBC56B}
   .dim{color:#6B7194;font-size:12px}
   .asset-risks{margin-top:10px;padding-top:10px;border-top:1px solid #1E2440}
-  .asset-risks>b{color:#FBC56B;font-size:13px}
-  .risk{font-size:12.5px;color:#D7D2F0;margin-top:6px;line-height:1.5;padding-left:14px;position:relative}
-  .risk:before{content:"!";position:absolute;left:0;color:#F59E0B;font-weight:800}
+  .asset-risks>b{color:#7C2D12;font-size:13px}
+  .risk{font-size:12.5px;color:#3E3A5C;margin-top:6px;line-height:1.55;padding-left:18px;position:relative;font-weight:600}
+  .risk:before{content:"!";position:absolute;left:0;color:#B45309;font-weight:800}
   /* 视图切换与工程体检 */
   .tabs{display:flex;gap:8px;justify-content:center;margin:24px auto 10px;max-width:720px;position:relative;z-index:2}
   .tab{appearance:none;-webkit-appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.72);color:var(--ink-2);font-size:14px;font-weight:650;padding:9px 22px;border-radius:999px;cursor:pointer;transition:.18s;backdrop-filter:blur(6px)}
@@ -591,7 +591,7 @@
     <div id="tableWrap" hidden data-page-node-id="KUGpt30GvCFqUXvNVoJZJ0">
       <table data-page-node-id="2oAlg9OETdqSENOTPs0Xzx">
         <thead data-page-node-id="tnvFHX4fvTsRzpLSqqjYEc"><tr data-page-node-id="dTzS6BAe1vRL7NumCNxXkG">
-          <th data-page-node-id="i8ERAjwKtShgfOPULtXWBw">文件</th><th data-page-node-id="7iJvwdQAgrRRvf8icwks9Y">类型</th><th data-page-node-id="8vYdWdEFHVoFT2QN9i7xOF">检测到的源版本</th><th data-page-node-id="nHxVYBLxNRoiZcBNO2eMVt">大小</th><th data-page-node-id="fBbjDFvEGmLGdpfqdUAeWY">状态</th><th>体检</th>
+          <th data-page-node-id="i8ERAjwKtShgfOPULtXWBw">文件</th><th data-page-node-id="7iJvwdQAgrRRvf8icwks9Y">类型</th><th data-page-node-id="8vYdWdEFHVoFT2QN9i7xOF">检测到的源版本</th><th data-page-node-id="nHxVYBLxNRoiZcBNO2eMVt">大小</th><th data-page-node-id="fBbjDFvEGmLGdpfqdUAeWY">状态</th>
         </tr></thead>
         <tbody id="tbody" data-page-node-id="8EnCPKAs2dLsx0Kp3iZeFf"></tbody>
       </table>
@@ -1429,18 +1429,13 @@ function renderAll(){
     if(r.ok && r.extra.sparse2026) ver+=' ⚠2026';
     var st = r.ok ? '<span class="tag t-ok">可转换</span>'
                   : '<span class="tag t-err" title="'+esc(r.error)+'">无法识别</span>';
-    var canAudit = r.ok;
     tr.innerHTML =
       '<td class="name" title="'+esc(e.rel)+'">'+esc(e.name)+'</td>'+
       '<td><span class="tag t-info">'+r.ftype.toUpperCase()+'</span></td>'+
       '<td>'+esc(ver)+'</td>'+
       '<td>'+fmtSize(e.u8.length)+'</td>'+
-      '<td>'+st+'</td>'+
-      '<td>'+(canAudit?'<button class="btn ghost sm" data-asset="'+i+'">体检</button>':'—')+'</td>';
+      '<td>'+st+'</td>';
     tb.appendChild(tr);
-  });
-  tb.querySelectorAll('button[data-asset]').forEach(function(b){
-    b.onclick=function(){ window.toggleAsset(+b.dataset.asset); };
   });
 
   // 判断当前列表的文件类型：AE 与 PR 混在一起时无法共用一个目标版本，要求分开处理
@@ -1623,7 +1618,7 @@ function toggleAsset(idx){
   if(!e.asset) e.asset=scanAssetsJS(e.u8,e.res,e.name);
   var tr=document.createElement('tr');
   tr.className='detail'; tr.setAttribute('data-for',idx);
-  tr.innerHTML='<td colspan="6"><div class="asset-card"><div class="asset-head">工程体检 · '+
+  tr.innerHTML='<td colspan="5"><div class="asset-card"><div class="asset-head">工程体检 · '+
     esc(e.name)+'　<span class="dim">'+esc(e.asset.versionLabel)+'</span></div>'+assetHtml(e.asset)+'</div></td>';
   var rows=Array.prototype.slice.call(tb.querySelectorAll('tr:not(.detail)'));
   if(rows[idx]) rows[idx].after(tr); else tb.appendChild(tr);
@@ -1925,8 +1920,9 @@ function showView(v){
     ['dragenter','dragover'].forEach(function(ev){ ad.addEventListener(ev,function(e){ e.preventDefault(); ad.classList.add('drag'); }); });
     ['dragleave','drop'].forEach(function(ev){ ad.addEventListener(ev,function(e){ e.preventDefault(); ad.classList.remove('drag'); }); });
     ad.addEventListener('drop', function(e){ if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) auditRun(e.dataTransfer.files, false); });
+    ad.addEventListener('click', function(e){ if(e.target===ad || ad.contains(e.target)) $('auditFile').click(); });
   }
-  var pf=$('auditPick'); if(pf) pf.addEventListener('click', function(){ $('auditFile').click(); });
+  var pf=$('auditPick'); if(pf) pf.addEventListener('click', function(e){ e.stopPropagation(); $('auditFile').click(); });
   var af=$('auditFile'); if(af) af.addEventListener('change', function(e){ auditRun(e.target.files, false); e.target.value=''; });
   var pd=$('auditPickDir'); if(pd) pd.addEventListener('click', function(){ $('auditDir').click(); });
   var ad2=$('auditDir'); if(ad2) ad2.addEventListener('change', function(e){ auditRun(e.target.files, true); e.target.value=''; });
