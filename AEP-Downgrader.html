@@ -758,7 +758,9 @@
     <button class="btn small ghost" id="auditDlJson" data-page-node-id="D0pQ3Wk6Hs9jF2dG4tY8Nx">JSON</button>
     <button class="btn small ghost" id="auditDlCsv" data-page-node-id="E2uC9Xe6Mr1lJ5hF8vY2Ow">CSV</button>
     <button class="btn small primary" id="auditZip" data-page-node-id="F4wE6Zg0Ot3nL7jH0xY4Qy">自动打包 ZIP ▾</button>
-    <span class="mb-hint">选「文件夹」可把能找到的素材一并打进 ZIP；发包清单列出全部素材 / 字体 / 插件路径</span>
+    <button class="btn small ghost" id="auditCopyMd" title="把 Markdown 清单复制到剪贴板">复制 Markdown</button>
+    <button class="btn small ghost" id="auditOpenBrowser" title="在系统浏览器中打开本页面">浏览器打开</button>
+    <span class="mb-hint">选「文件夹」可把能找到的素材一并打进 ZIP；若点击下载弹出打开方式，请用「浏览器打开」后再试。</span>
   </div>
 </div>
 </div><!-- /auditView -->
@@ -1772,27 +1774,42 @@ window.DeliveryZip = (function () {
 })();
 
 function downloadBlob(filename, blob) {
-  // IE/旧版 Edge 有专用 API
+  // 1) IE/旧版 Edge 有专用 API
   if (window.navigator && navigator.msSaveOrOpenBlob) {
     navigator.msSaveOrOpenBlob(blob, filename);
     return;
   }
-  // 为避免在 file:// 或部分 WebView 环境里点击 blob: 链接弹出"打开方式"对话框，
-  // 统一转成 data URL（base64）再触发下载。对大部分清单/工程文件来说体积可接受。
-  var rd = new FileReader();
-  rd.onload = function () {
-    var a = document.createElement('a');
-    a.href = rd.result;
-    a.download = filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    // 使用 MouseEvent 比 a.click() 兼容性更好
-    var ev = document.createEvent('MouseEvents');
-    ev.initMouseEvent('click', true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
-    a.dispatchEvent(ev);
-    a.remove();
-  };
-  rd.readAsDataURL(blob);
+  // 2) 现代浏览器原生保存对话框（Chromium/Edge/Chrome），不走 blob:/data: URL，
+  //    可绕过某些 WebView/内置预览把自定义协议交给 OS 弹"打开方式"的问题。
+  if (window.showSaveFilePicker && typeof blob.stream === 'function') {
+    var ext = filename.split('.').pop().toLowerCase();
+    var mime = blob.type || 'application/octet-stream';
+    var opts = { suggestedName: filename };
+    if (mime) {
+      var accept = {};
+      accept[mime] = ['.' + (ext || 'bin')];
+      opts.types = [{ description: (ext ? ext.toUpperCase() : 'File') + ' file', accept: accept }];
+    }
+    showSaveFilePicker(opts)
+      .then(function (handle) { return handle.createWritable(); })
+      .then(function (writable) { return blob.stream().pipeTo(writable); })
+      .catch(function (err) {
+        if (err && err.name !== 'AbortError') console.error('showSaveFilePicker failed', err);
+      });
+    return;
+  }
+  // 3) 标准 blob URL + 显式 MouseEvent（download 属性在同域 blob 上最稳）
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  var ev = document.createEvent('MouseEvents');
+  ev.initMouseEvent('click', true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+  a.dispatchEvent(ev);
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
 }
 function downloadText(filename, text, mime) {
   downloadBlob(filename, new Blob([text], { type: (mime || 'text/plain;charset=utf-8') }));
@@ -1915,6 +1932,20 @@ function showView(v){
   var mb2=$('auditDlJson'); if(mb2) mb2.addEventListener('click', function(){ auditDownloadManifest('json'); });
   var mb3=$('auditDlCsv'); if(mb3) mb3.addEventListener('click', function(){ auditDownloadManifest('csv'); });
   var zb=$('auditZip'); if(zb) zb.addEventListener('click', function(){ auditPackageZip(); });
+  var cb=$('auditCopyMd'); if(cb) cb.addEventListener('click', function(){
+    if(!auditItems.length) return;
+    var m=window.AssetManifest.build(auditItems, auditNameMap);
+    var txt=window.AssetManifest.toMarkdown(m);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){ alert('Markdown 清单已复制到剪贴板'); })
+        .catch(function(){ prompt('请手动复制以下内容', txt); });
+    } else {
+      prompt('请手动复制以下内容', txt);
+    }
+  });
+  var ob=$('auditOpenBrowser'); if(ob) ob.addEventListener('click', function(){
+    window.open(location.href, '_blank');
+  });
   showView('downgrader');
 })();
 
