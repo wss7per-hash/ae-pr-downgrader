@@ -189,16 +189,34 @@ def _classify_third_party(strings: List[str]) -> List[str]:
     return sorted(hits)
 
 
+# 这些词出现在字符串里时，大概率是软件名/项目名/路径片段，不是字体名
+FONT_IGNORE_TOKENS = [
+    "Adobe Premiere Pro", "Premiere Pro", "After Effects", "Adobe Audition",
+    "Adobe Media Encoder", "Photoshop", "Illustrator", "Audition",
+    "Audio Previewer", "Audio Preview", "Plugin", "Plug-in",
+]
+
+
 def _classify_fonts(strings: List[str]) -> List[str]:
     found = set()
     blob = "\n".join(strings)
+    lower_blob = blob.lower()
     for hint in FONT_HINTS:
-        if hint.lower() in blob.lower():
-            # 提取包含该 hint 的相邻词，尽量给具体字体名
-            for m in re.finditer(re.escape(hint) + r"[A-Za-z0-9 ]{0,24}", blob):
-                token = m.group(0).strip()
-                if token:
-                    found.add(token)
+        if hint.lower() not in lower_blob:
+            continue
+        # 避免 "Times" 命中 "Timestamp"、"Adobe" 命中 "Adobeful" 等连写词，
+        # 同时允许 "Adobe Heiti Std" / "Times New Roman" 这种空格分隔的完整字体名。
+        # (?![A-Za-z0-9]) 表示 hint 后不能直接跟字母数字；
+        # (?:[ ]+[A-Za-z0-9]+)* 允许跟任意多组"空格+单词"。
+        pattern = re.escape(hint) + r"(?![A-Za-z0-9])(?:[ ]+[A-Za-z0-9]+)*"
+        for m in re.finditer(pattern, blob):
+            token = m.group(0).strip()
+            if not token:
+                continue
+            # 过滤明显非字体的软件名/路径片段（保留原始大小写做判定）
+            if any(ign.lower() in token.lower() for ign in FONT_IGNORE_TOKENS):
+                continue
+            found.add(token)
     return sorted(found)
 
 
@@ -310,7 +328,9 @@ def scan_pr_family(data: bytes, path: str) -> AssetReport:
 
     rep.adobe_effects = _classify_adobe_effects([xml])  # PR XML 里 ADBE 罕见
     rep.third_party = _classify_third_party([xml])
-    rep.fonts = _classify_fonts([xml])
+    # PR 的字体只从 <Font>/<FontPath> 标签提取，不对整段 XML 跑 hint 匹配，
+    # 否则会误把 "Adobe Premiere Pro" 等软件名当成字体（见下方标签提取）。
+    rep.fonts = []
     rep.media_paths = _classify_media_paths([xml])
     rep.expression_count = _classify_expressions(blob)
     rep.has_expression = rep.expression_count > 0
@@ -320,8 +340,14 @@ def scan_pr_family(data: bytes, path: str) -> AssetReport:
         if m.strip():
             rep.fonts.append(m.strip())
     for m in re.findall(r"<FontPath[^>]*>([^<]{1,200})</FontPath>", xml):
-        if m.strip():
-            rep.fonts.append(m.strip())
+        fp = m.strip()
+        if not fp:
+            continue
+        # 取文件名（去目录），再去掉字体扩展名，得到干净的字体名
+        name = fp.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+        name = re.sub(r"\.(ttf|otf|ttc|fon)$", "", name, flags=re.I)
+        if name:
+            rep.fonts.append(name)
     for tag in ("MediaPath", "FilePath", "ClipPath", "AudioPath"):
         for m in re.findall(r"<%s[^>]*>([^<]{1,260})</%s>" % (tag, tag), xml):
             if m.strip() and "." in m:

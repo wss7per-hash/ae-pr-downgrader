@@ -1452,6 +1452,7 @@ var ASSET_EXPR=['thisComp','thisLayer','thisProperty','thisProject','wiggle(','l
 var ASSET_ADBE_RE=/\bADBE [A-Za-z0-9 .\-/]+\b/g;
 var ASSET_TP=['Trapcode','Red Giant','Particular','Form','Mir','Shine','Starglow','Video Copilot','Element 3D','Optical Flares','Saber','Twitch','Boris','BCC','Continuum','Mocha','Sapphire','Genarts','Rowbytes','Frischluft','Depth of Field','RE:Vision','Twixtor','Neat Video','Knoll','Unmult','Digieffects','Damage','VC Reflect','Real Grain','Pixel Filth','Sound Keys','Looks','Colorista','Denoiser','PlaneSpace','Lux','Horizon'];
 var ASSET_FONT=['Adobe','Source Han','思源','Microsoft','SimHei','SimSun','黑体','宋体','楷体','Arial','Helvetica','Times','Courier','Calibri','Noto','PingFang','Hiragino','STHeiti','Heiti','FangSong','Myriad','Minion','Georgia','Verdana','Tahoma','Roboto','苹方','华文','文泉驿','DIN','Akzidenz'];
+var ASSET_FONT_IGNORE=['Adobe Premiere Pro','Premiere Pro','After Effects','Adobe Audition','Adobe Media Encoder','Photoshop','Illustrator','Audition','Audio Previewer','Audio Preview','Plugin','Plug-in'];
 var ASSET_PATH_RE=new RegExp('[A-Za-z]:\\\\[^\\x00-\\x1f\\r\\n]{4,}\\.\\w{2,4}|/(?:[^/\\x00-\\x1f]{1,}/){2,}[^/\\x00-\\x1f]+\\.\\w{2,4}','g');
 var ASSET_EXT={'png':1,'jpg':1,'jpeg':1,'psd':1,'ai':1,'tif':1,'tiff':1,'gif':1,'bmp':1,'exr':1,'mov':1,'mp4':1,'avi':1,'mxf':1,'wmv':1,'m4v':1,'r3d':1,'ari':1,'braw':1,'wav':1,'mp3':1,'aif':1,'aiff':1,'m4a':1,'wma':1,'flac':1,'ogg':1,'aep':1,'aepx':1,'prproj':1,'ppj':1,'eps':1,'pdf':1,'svg':1};
 
@@ -1492,14 +1493,27 @@ function scanAssetsJS(u8,res,path){
   var adobe=uniqJS((blob.match(ASSET_ADBE_RE)||[]).map(function(s){return s.trim();}));
   var low=blob.toLowerCase();
   var tp=uniqJS(ASSET_TP.filter(function(h){ return low.indexOf(h.toLowerCase())>=0; }));
-  var fonts=uniqJS(ASSET_FONT.filter(function(h){ return low.indexOf(h.toLowerCase())>=0; }));
+  // PR 的字体只从 <Font> 标签提取（见下方 PR 分支），不对整段 XML 跑 hint 匹配，
+  // 否则会误把 "Adobe Premiere Pro" 等软件名当成字体。AE/AEPX 才用 hint 匹配。
+  var fonts = (res.ftype==='prproj' && res.xml) ? [] : uniqJS(ASSET_FONT.filter(function(h){
+    if(low.indexOf(h.toLowerCase())<0) return false;
+    // 过滤明显非字体的软件名/路径片段（与 Python scan_assets.py 对齐）：
+    // 若 blob 里出现某个忽略词，且该忽略词包含当前 hint（又不等于 hint 本身），
+    // 说明该 hint 只是软件名/路径的一部分。
+    var loh=h.toLowerCase();
+    return !ASSET_FONT_IGNORE.some(function(ign){ var lig=ign.toLowerCase(); return low.indexOf(lig)>=0 && lig.indexOf(loh)>=0 && lig!==loh; });
+  }));
   var paths=[], m; ASSET_PATH_RE.lastIndex=0;
   while((m=ASSET_PATH_RE.exec(blob))){ var ext=m[0].split('.').pop().toLowerCase(); if(ASSET_EXT[ext]) paths.push(m[0].trim()); }
   paths=uniqJS(paths);
   var expr=ASSET_EXPR.filter(function(t){ return blob.indexOf(t)>=0; }).length;
   if(res.ftype==='prproj' && res.xml){
     var fm; var fRe=/(?:<Font[^>]*>)([^<]{1,40})<\/Font>/g;
-    while((fm=fRe.exec(res.xml))){ fonts.push(fm[1].trim()); }
+    while((fm=fRe.exec(res.xml))){
+      var ft=fm[1].trim();
+      if(!ASSET_FONT_IGNORE.some(function(ign){ return ft.toLowerCase().indexOf(ign.toLowerCase())>=0; }))
+        fonts.push(ft);
+    }
     var pm; var pRe=/(?:<(MediaPath|FilePath|ClipPath|AudioPath)[^>]*>)([^<]{1,260})<\/\1>/g;
     while((pm=pRe.exec(res.xml))){ if(pm[2].indexOf('.')>=0) paths.push(pm[2].trim()); }
     fonts=uniqJS(fonts); paths=uniqJS(paths);

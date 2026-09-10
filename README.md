@@ -286,8 +286,9 @@ Premiere 两种都能读，所以照原样还回去最安全。
 
 ### 不放心？用「通用兼容 Version=1」
 
-上面的年份 → Version 映射**全部来自文献，本机没有安装 Premiere Pro，没有实机验证过**。
-因此提供一个**不依赖对照表**的兜底选项：
+上面的年份 → Version 映射来自文献（helmut4 + Just Solve 交叉比对），**PR 2023 之前在本机未安装**
+（现已在 `E:\Program Files\PR\Adobe Premiere Pro 2023` 安装并用真实 `.prproj` 样本做过 info / 体检验证）。
+如果你不确定目标版本对应关系，或降级后打不开，可直接用这个**不依赖对照表**的兜底选项：
 
 ```
 --to any    （网页版里是列表最后一项「通用兼容 Version=1」）
@@ -369,11 +370,14 @@ python scan_assets.py "D:\proj" --recursive      # 整目录
 
 **Premiere Pro（`.prproj`）** 的额外说明：
 
-- **本机未安装 Premiere Pro，也没有真实 `.prproj` 样本**，
-  全部验证基于**合成样本**（gzip / 纯 XML / 含中文 / Version=1 兜底 / 各类错误分支，共 115 项自检）。
+- **本机已安装 Premiere Pro 2023**（`E:\Program Files\PR\Adobe Premiere Pro 2023`），
+  并用真实 `.prproj` 样本（`剪辑_1.prproj`，Version 41 / 2023）验证过 info 识别、工程体检，
+  以及 2023 → 2022 的真实降级（输出为合法 gzip PR、版本号变为 Version 40、原文件字节不变）。
+  但仓库中**不附带任何真实工程文件**；自动化测试仍基于合成样本
+  （gzip / 纯 XML / 含中文 / Version=1 兜底 / 各类错误分支，共 115 项自检）。
   **请务必先用副本试开。**
-- 年份 → Version 的映射是**文献值**（helmut4 + Just Solve 交叉比对），未经实机验证；
-  不确定就选 `any`（Version=1）
+- 年份 → Version 的映射是文献值（helmut4 + Just Solve 交叉比对），已在 PR 2023 样本上确认 2023 ↔ Version 41；
+  若目标版本不确定，建议选 `any`（Version=1）
 - **2026（Version 45）是稀疏序列化**，仅改版本号可能让旧版报「工程损坏」→ 建议用 `any`
 - 与 AE 一样：目标版本不支持的新功能（新效果、新格式、扩展）仍会丢失
 - AE 与 PR **不能混在一批处理**（版本号体系不同），网页版会检测并提示
