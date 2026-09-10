@@ -1772,11 +1772,27 @@ window.DeliveryZip = (function () {
 })();
 
 function downloadBlob(filename, blob) {
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  // IE/旧版 Edge 有专用 API
+  if (window.navigator && navigator.msSaveOrOpenBlob) {
+    navigator.msSaveOrOpenBlob(blob, filename);
+    return;
+  }
+  // 为避免在 file:// 或部分 WebView 环境里点击 blob: 链接弹出"打开方式"对话框，
+  // 统一转成 data URL（base64）再触发下载。对大部分清单/工程文件来说体积可接受。
+  var rd = new FileReader();
+  rd.onload = function () {
+    var a = document.createElement('a');
+    a.href = rd.result;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    // 使用 MouseEvent 比 a.click() 兼容性更好
+    var ev = document.createEvent('MouseEvents');
+    ev.initMouseEvent('click', true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+    a.dispatchEvent(ev);
+    a.remove();
+  };
+  rd.readAsDataURL(blob);
 }
 function downloadText(filename, text, mime) {
   downloadBlob(filename, new Blob([text], { type: (mime || 'text/plain;charset=utf-8') }));
@@ -2080,11 +2096,7 @@ function renderOutputs(){
   ob.querySelectorAll('button[data-i]').forEach(function(b){
     b.onclick=function(){
       var o=outputs[+b.dataset.i];
-      var a=document.createElement('a');
-      a.href=URL.createObjectURL(o.blob);
-      a.download=o.name;
-      a.click();
-      setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+      if (o && o.blob) downloadBlob(o.name, o.blob);
     };
   });
 }
@@ -2105,11 +2117,7 @@ function dlZip(){
       list.push({name:tag+'/'+o.name, data:new Uint8Array(rd.result)});
       if(--pending===0){
         var blob=zipStore(list);
-        var a=document.createElement('a');
-        a.href=URL.createObjectURL(blob);
-        a.download=tag+'.zip';
-        a.click();
-        setTimeout(function(){ URL.revokeObjectURL(a.href); },8000);
+        downloadBlob(tag+'.zip', blob);
       }
     };
     rd.readAsArrayBuffer(o.blob);
