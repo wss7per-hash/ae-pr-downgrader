@@ -36,6 +36,15 @@ python aep_cli.py conv "D:\\proj" --to 2024 --in-place
 
 # 列出所有支持的目标版本
 python aep_cli.py versions
+
+# 生成「发包清单」（依赖清单：素材路径 + 字体 + 插件 + 表达式）
+python aep_cli.py manifest "D:\\proj\\demo.prproj"
+python aep_cli.py manifest "D:\\proj\\demo.aep" --json
+
+# 组装交付文件夹：复制工程（可先降级）+ 能找到的素材 + 清单，发给协作方
+python aep_cli.py package "D:\\proj\\demo.prproj" --out "D:\\deliver"
+python aep_cli.py package "D:\\proj" --out "D:\\deliver" --to 2022
+python aep_cli.py package "D:\\proj" --out "D:\\deliver" --dry-run
 """
 
 from __future__ import annotations
@@ -54,6 +63,10 @@ try:
         convert_prproj_file, resolve_pr_target, scan_prproj_bytes,
         short_label_of_number, label_of_number, risk_level as pr_risk_level,
     )
+    from scan_assets import (
+        scan_assets_file, build_manifest, manifest_to_markdown,
+        manifest_to_json, package_project,
+    )
 except ImportError:  # 允许直接双击运行时从同目录导入
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from aep_core import (
@@ -64,6 +77,10 @@ except ImportError:  # 允许直接双击运行时从同目录导入
         PR_VERSION_TABLE, PR_SAFE_ANY, PR_SAFE_LABEL, SUPPORTED_EXT as PR_EXT,
         convert_prproj_file, resolve_pr_target, scan_prproj_bytes,
         short_label_of_number, label_of_number, risk_level as pr_risk_level,
+    )
+    from scan_assets import (
+        scan_assets_file, build_manifest, manifest_to_markdown,
+        manifest_to_json, package_project,
     )
 
 
@@ -299,6 +316,75 @@ def cmd_conv(args):
     return 0 if n_fail == 0 else 2
 
 
+def resolve_target_for(path: str, s: str):
+    """按文件类型分派到 AE / PR 的目标版本解析。"""
+    if path.lower().endswith(".prproj"):
+        return resolve_pr_target(s)
+    return resolve_target(s)
+
+
+def cmd_manifest(args):
+    ae, pr = collect_files(args.paths, args.recursive)
+    files = ae + pr
+    if not files:
+        print("未找到支持的文件（%s）" % ", ".join(ALL_EXT))
+        return 1
+    for f in files:
+        rep = scan_assets_file(f)
+        mf = build_manifest(rep, f)
+        if args.json:
+            print(manifest_to_json(mf))
+        else:
+            print(manifest_to_markdown(mf))
+            print()
+    return 0
+
+
+def cmd_package(args):
+    ae, pr = collect_files(args.paths, args.recursive)
+    files = ae + pr
+    if not files:
+        print("未找到支持的文件（%s）" % ", ".join(ALL_EXT))
+        return 1
+    if not args.out:
+        print("请指定交付目录：--out <目录>")
+        return 1
+
+    n_ok = n_skip = n_fail = 0
+    for f in files:
+        tgt = None
+        if args.to:
+            try:
+                tgt = resolve_target_for(f, args.to)
+            except ValueError as e:
+                print("目标版本解析失败：%s" % e)
+                return 1
+        if args.dry_run:
+            print("[试运行] 将打包：%s -> %s%s"
+                  % (f, args.out, ("（降级到 %s）" % args.to) if tgt is not None else ""))
+            n_skip += 1
+            continue
+        try:
+            res = package_project(f, args.out, target=tgt)
+        except Exception as e:  # noqa: BLE001
+            n_fail += 1
+            print("  [失败] %-42s %s" % (os.path.basename(f)[:42], e))
+            continue
+        n_ok += 1
+        print("  已打包 %-30s 工程 %s"
+              % (os.path.basename(f)[:30], os.path.relpath(res["project_out"], args.out) or res["project_out"]))
+        print("         素材 %d（缺失 %d · 已复制 %d）→ %s"
+              % (res["media_total"], res["media_missing"], res["media_copied"], args.out))
+    print("\n" + "=" * 66)
+    print("完成：打包 %d   跳过 %d   失败 %d" % (n_ok, n_skip, n_fail))
+    if n_ok and not args.dry_run:
+        print("\n交付文件夹已生成：%s" % args.out)
+        print("  含：工程文件副本 + media/（能找到的素材）+ manifest.md/json + 交付说明.txt")
+        print("  ❌ 缺失素材需向发包方补齐，协作方用目标版本软件实机打开确认。")
+    print("=" * 66)
+    return 0 if n_fail == 0 else 2
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="aep_cli",
@@ -327,6 +413,21 @@ def main(argv=None):
 
     p3 = sub.add_parser("versions", help="列出支持的目标版本")
     p3.set_defaults(func=lambda a: (print_table(), 0)[1])
+
+    p4 = sub.add_parser("manifest", help="生成「发包清单」（依赖清单：素材+字体+插件）")
+    p4.add_argument("paths", nargs="+", help="工程文件或目录")
+    p4.add_argument("--json", action="store_true", help="输出 JSON 而非 Markdown")
+    p4.add_argument("--no-recursive", dest="recursive", action="store_false")
+    p4.set_defaults(recursive=True, func=cmd_manifest)
+
+    p5 = sub.add_parser("package", help="组装交付文件夹（复制工程+能找到的素材+清单）")
+    p5.add_argument("paths", nargs="+", help="工程文件或目录")
+    p5.add_argument("--out", "-o", required=True, help="交付目录（输出到这里）")
+    p5.add_argument("--to", "-t", default="",
+                    help="可选：先把工程降级到该版本再打包（AE/PR 各自解释）")
+    p5.add_argument("--dry-run", "-n", action="store_true", help="试运行，不写盘")
+    p5.add_argument("--no-recursive", dest="recursive", action="store_false")
+    p5.set_defaults(recursive=True, func=cmd_package)
 
     args = ap.parse_args(argv)
     if not getattr(args, "func", None):

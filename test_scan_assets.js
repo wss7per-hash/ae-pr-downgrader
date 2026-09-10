@@ -30,6 +30,9 @@ global.window = {};
 eval(m[1]);
 const scanAssetsJS = global.window.AssetScan && global.window.AssetScan.scan;
 if (typeof scanAssetsJS !== 'function') { console.error('AssetScan.scan 未导出'); process.exit(1); }
+const assetManifest = global.window.AssetManifest;
+const deliveryZip = global.window.DeliveryZip;
+if (typeof assetManifest !== 'object' || typeof deliveryZip !== 'object') { console.error('AssetManifest/DeliveryZip 未导出'); process.exit(1); }
 
 let pass = 0, fail = 0;
 function chk(name, cond, extra) {
@@ -110,6 +113,70 @@ chk('AEPX 表达式标记', axRep.hasExpression);
 console.log('\n== 4. 错误分支 ==');
 const bad = scanAssetsJS(new Uint8Array(Buffer.from('not a project')), { ftype: 'unknown', ok: false }, 'junk.bin');
 chk('未知类型不崩溃', bad.kind === 'unknown' && Array.isArray(bad.risks), JSON.stringify(bad));
+
+console.log('\n== 5. 发包清单 AssetManifest ==');
+const mi = {
+  name: 'demo.aep',
+  rep: {
+    kind: 'aep', versionLabel: '2025 (25.0)',
+    fonts: ['Microsoft YaHei'], thirdParty: ['Trapcode'], adobeEffects: ['ADBE Gaussian Blur'],
+    hasExpression: true, expressionCount: 2,
+    mediaPaths: ['C:\\proj\\a.png', 'D:\\miss\\b.mov'],
+  },
+};
+const nameMap = { 'a.png': { name: 'a.png' } };
+const man = assetManifest.build([mi], nameMap);
+chk('清单含 1 个工程', man.projects.length === 1);
+chk('清单素材数=2', man.summary.media === 2, JSON.stringify(man.summary));
+chk('清单缺失数=1', man.summary.mediaMissing === 1, JSON.stringify(man.summary));
+chk('清单标记 a.png 存在', man.projects[0].media[0].status === 'yes', man.projects[0].media[0].status);
+chk('清单标记 b.mov 缺失', man.projects[0].media[1].status === 'no');
+const manMd = assetManifest.toMarkdown(man);
+chk('MD 含标题', manMd.indexOf('# 发包清单') >= 0);
+chk('MD 含缺失标记 ❌', manMd.indexOf('❌') >= 0);
+const manJs = JSON.parse(assetManifest.toJson(man));
+chk('JSON 可解析含 summary.mediaMissing=1', manJs.summary && manJs.summary.mediaMissing === 1, assetManifest.toJson(man).slice(0, 80));
+const manCsv = assetManifest.toCsv(man);
+chk('CSV 含表头 工程,类别', manCsv.split('\n')[0].indexOf('工程,类别') >= 0, manCsv.split('\n')[0]);
+
+console.log('\n== 6. 纯 JS ZIP（store）==');
+function parseZip(buf) {
+  const out = [];
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let off = 0;
+  while (off + 30 <= dv.byteLength) {
+    const sig = dv.getUint32(off, true);
+    if (sig !== 0x04034b50) break;
+    const nameLen = dv.getUint16(off + 26, true);
+    const extraLen = dv.getUint16(off + 28, true);
+    const compSize = dv.getUint32(off + 18, true);
+    let name = '';
+    for (let i = 0; i < nameLen; i++) name += String.fromCharCode(dv.getUint8(off + 30 + i));
+    const dataOff = off + 30 + nameLen + extraLen;
+    const data = Uint8Array.from(buf.subarray(dataOff, dataOff + compSize));
+    out.push({ name: name, data: data, crcOff: off + 14 });
+    off = dataOff + compSize;
+  }
+  return out;
+}
+const zip = deliveryZip.build([
+  { name: 'a.txt', data: new Uint8Array([104, 105]) },
+  { name: 'media/b.png', data: new Uint8Array([1, 2, 3, 4]) },
+]);
+chk('ZIP 以 PK\\x03\\x04 开头', zip[0] === 0x50 && zip[1] === 0x4B && zip[2] === 0x03 && zip[3] === 0x04, zip.slice(0, 4).toString());
+const parsed = parseZip(zip);
+chk('ZIP 含 2 个条目', parsed.length === 2, String(parsed.length));
+chk('ZIP 条目名正确', parsed[0].name === 'a.txt' && parsed[1].name === 'media/b.png', JSON.stringify(parsed.map(p => p.name)));
+chk('ZIP 数据无损 (hi)', parsed[0].data[0] === 104 && parsed[0].data[1] === 105);
+chk('ZIP 数据无损 (1234)', parsed[1].data[0] === 1 && parsed[1].data[3] === 4);
+const dvZip = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+const storedCrc = dvZip.getUint32(parsed[0].crcOff, true);
+chk('ZIP crc32 匹配', storedCrc === deliveryZip.crc32(parsed[0].data), storedCrc + ' vs ' + deliveryZip.crc32(parsed[0].data));
+let hasEOCD = false;
+for (let i = 0; i + 4 <= zip.length; i++) {
+  if (zip[i] === 0x50 && zip[i + 1] === 0x4B && zip[i + 2] === 0x05 && zip[i + 3] === 0x06) { hasEOCD = true; break; }
+}
+chk('ZIP 含 EOCD 标记 (PK\\x05\\x06)', hasEOCD);
 
 console.log('\n' + '='.repeat(46));
 console.log('  ' + pass + ' PASS / ' + fail + ' FAIL');

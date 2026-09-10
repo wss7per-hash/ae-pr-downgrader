@@ -431,6 +431,16 @@
   .tab:hover{background:#fff;color:var(--brand)}
   .tab.active{background:var(--brand);color:#fff;border-color:var(--brand);box-shadow:0 8px 22px -8px rgba(108,92,231,.45)}
   .drop.drag{transform:scale(1.01);border-color:var(--brand);box-shadow:0 0 0 3px rgba(108,92,231,.18),0 18px 42px -16px rgba(108,92,231,.25)}
+  /* 发包清单 / 自动打包 */
+  .manifest-bar{display:none;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px;padding:14px 16px;
+    background:linear-gradient(180deg,#161B33,#12172B);border:1px solid #283055;border-radius:14px}
+  .manifest-bar[hidden]{display:none}
+  .manifest-bar:not([hidden]){display:flex}
+  .mb-title{font-weight:700;color:#C9C3F0;font-size:13px;margin-right:4px}
+  .mb-hint{font-size:12px;color:#6B7194}
+  .btn.small{font-size:12.5px;padding:7px 14px;border-radius:9px}
+  .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .btn.primary:hover{filter:brightness(1.07)}
 </style>
 </head>
 <body data-page-node-id="l0HtAly6HpRa1Gvak9pb7n">
@@ -741,6 +751,15 @@
   </div>
 
   <div id="auditReport" style="margin-top:18px" data-page-node-id="K4yG6Bi2Qv2pN8kJ5zY3Sd"></div>
+
+  <div class="manifest-bar" id="auditManifestBar" hidden data-page-node-id="B7mQ2Wk9Hs5jF2dG6tY0Nx">
+    <span class="mb-title">发包清单 / 自动打包</span>
+    <button class="btn small" id="auditDlMd" data-page-node-id="C9nK8Pj2Qb4sF9dG3hT7Yd">下载清单 (Markdown)</button>
+    <button class="btn small ghost" id="auditDlJson" data-page-node-id="D0pQ3Wk6Hs9jF2dG4tY8Nx">JSON</button>
+    <button class="btn small ghost" id="auditDlCsv" data-page-node-id="E2uC9Xe6Mr1lJ5hF8vY2Ow">CSV</button>
+    <button class="btn small primary" id="auditZip" data-page-node-id="F4wE6Zg0Ot3nL7jH0xY4Qy">自动打包 ZIP ▾</button>
+    <span class="mb-hint">选「文件夹」可把能找到的素材一并打进 ZIP；发包清单列出全部素材 / 字体 / 插件路径</span>
+  </div>
 </div>
 </div><!-- /auditView -->
 
@@ -1611,6 +1630,193 @@ function toggleAsset(idx){
   return { scan: scanAssetsJS, html: assetHtml, toggle: toggleAsset };
 })();
 
+// ===== 发包清单（依赖清单 / delivery manifest）=====
+// 与 Python scan_assets.py 的 build_manifest / manifest_to_* 同套结构：
+// 把体检结果加工成「给协作方的依赖清单」，并支持一键下载 / 打包。
+window.AssetManifest = (function () {
+  function build(items, nameMap) {
+    var projects = (items || []).map(function (it) {
+      var rep = it.rep || {};
+      var media = (rep.mediaPaths || []).map(function (p) {
+        var bn = p.split(/[\\\/]/).pop().toLowerCase();
+        var exists = !!(nameMap && nameMap[bn]);
+        return { path: p, exists: exists, status: nameMap ? (exists ? 'yes' : 'no') : 'unknown' };
+      });
+      return {
+        name: it.name, kind: rep.kind, versionLabel: rep.versionLabel,
+        fonts: rep.fonts || [], plugins: rep.thirdParty || [],
+        adobeEffects: rep.adobeEffects || [],
+        hasExpression: rep.hasExpression, expressionCount: rep.expressionCount,
+        media: media
+      };
+    });
+    var s = { projects: projects.length, media: 0, mediaMissing: 0, fonts: 0,
+              plugins: 0, adobeEffects: 0, projectsWithExpression: 0 };
+    projects.forEach(function (p) {
+      s.media += p.media.length;
+      s.mediaMissing += p.media.filter(function (m) { return m.status === 'no'; }).length;
+      s.fonts += p.fonts.length; s.plugins += p.plugins.length;
+      s.adobeEffects += p.adobeEffects.length;
+      if (p.hasExpression) s.projectsWithExpression++;
+    });
+    return { generatedAt: new Date().toISOString(), projects: projects, summary: s };
+  }
+  function toMarkdown(m) {
+    var L = [];
+    L.push('# 发包清单 / Delivery Manifest'); L.push('');
+    m.projects.forEach(function (p) {
+      L.push('## 工程：' + p.name); L.push('');
+      L.push('- 类型：' + (p.kind || '?'));
+      L.push('- 版本：' + (p.versionLabel || '未知')); L.push('');
+      L.push('### 素材清单');
+      if (p.media.length) {
+        p.media.forEach(function (x) {
+          var mark = x.status === 'yes' ? '✅' : (x.status === 'no' ? '❌' : '❔');
+          L.push('- [' + mark + '] `' + x.path + '`');
+        });
+      } else L.push('（未检测到素材路径）');
+      L.push('');
+      L.push('### 字体'); L.push(p.fonts.length ? p.fonts.map(function (f) { return '`' + f + '`'; }).join('、') : '（无）');
+      L.push('');
+      L.push('### 第三方插件（疑似）'); L.push(p.plugins.length ? p.plugins.map(function (f) { return '`' + f + '`'; }).join('、') : '（无）');
+      L.push('');
+      if (p.adobeEffects.length) { L.push('### AE 内置效果（ADBE）'); L.push(p.adobeEffects.map(function (f) { return '`' + f + '`'; }).join('、')); L.push(''); }
+      if (p.hasExpression) { L.push('### 表达式'); L.push('本工程使用了表达式（' + p.expressionCount + ' 处特征），旧版可能报错。'); L.push(''); }
+    });
+    L.push('## 摘要'); L.push('');
+    L.push('| 项目 | 数量 |'); L.push('| --- | ---: |');
+    L.push('| 工程数 | ' + m.summary.projects + ' |');
+    L.push('| 素材文件 | ' + m.summary.media + '（缺失 ' + m.summary.mediaMissing + '）|');
+    L.push('| 字体 | ' + m.summary.fonts + ' |');
+    L.push('| 第三方插件 | ' + m.summary.plugins + ' |');
+    L.push('| AE 内置效果 | ' + m.summary.adobeEffects + ' |');
+    L.push('| 含表达式工程 | ' + m.summary.projectsWithExpression + ' |');
+    L.push('');
+    L.push('> 本清单由 ae-pr-downgrader 根据工程文件字符串扫描生成，属「尽力提取」而非权威解析；');
+    L.push('> 准确结论以目标版本 AE / PR 实机打开为准。'); L.push('');
+    return L.join('\n');
+  }
+  function toJson(m) { return JSON.stringify(m, null, 2); }
+  function csvCell(c) {
+    c = String(c == null ? '' : c);
+    return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c;
+  }
+  function toCsv(m) {
+    var rows = [['工程', '类别', '名称', '状态', '路径']];
+    m.projects.forEach(function (p) {
+      p.media.forEach(function (x) { rows.push([p.name, '素材', x.path, x.status, x.path]); });
+      p.fonts.forEach(function (f) { rows.push([p.name, '字体', f, '', '']); });
+      p.plugins.forEach(function (f) { rows.push([p.name, '插件', f, '', '']); });
+      p.adobeEffects.forEach(function (f) { rows.push([p.name, 'AE效果', f, '', '']); });
+    });
+    return rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n');
+  }
+  return { build: build, toMarkdown: toMarkdown, toJson: toJson, toCsv: toCsv };
+})();
+
+// ===== 纯 JS ZIP 写入器（store 无压缩，无外部依赖）=====
+// 用于在浏览器里把「工程 + 能找到的素材 + 清单」直接打成 ZIP 下载。
+window.DeliveryZip = (function () {
+  var CRC_TABLE = (function () {
+    var t = new Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(bytes) {
+    var c = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function u16(a, v) { a.push(v & 0xFF, (v >>> 8) & 0xFF); }
+  function u32(a, v) { a.push(v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF); }
+  function build(entries) {
+    var enc = new TextEncoder();
+    var local = [], central = [], offset = 0;
+    entries.forEach(function (e) {
+      var nameBytes = enc.encode(e.name);
+      var data = e.data;
+      var crc = crc32(data);
+      var lh = [];
+      u32(lh, 0x04034b50); u16(lh, 20); u16(lh, 0x0800); u16(lh, 0);
+      u16(lh, 0); u16(lh, 0); u32(lh, crc);
+      u32(lh, data.length); u32(lh, data.length);
+      u16(lh, nameBytes.length); u16(lh, 0);
+      var lhB = Uint8Array.from(lh);
+      local.push(lhB, nameBytes, data);
+      var ch = [];
+      u32(ch, 0x02014b50); u16(ch, 20); u16(ch, 20); u16(ch, 0x0800); u16(ch, 0);
+      u16(ch, 0); u16(ch, 0); u32(ch, crc);
+      u32(ch, data.length); u32(ch, data.length);
+      u16(ch, nameBytes.length); u16(ch, 0); u16(ch, 0); u16(ch, 0); u16(ch, 0); u32(ch, 0);
+      u32(ch, offset);
+      central.push(Uint8Array.from(ch), nameBytes);
+      offset += lhB.length + nameBytes.length + data.length;
+    });
+    var cdSize = central.reduce(function (s, p) { return s + p.length; }, 0);
+    var ed = [];
+    u32(ed, 0x06054b50); u16(ed, 0); u16(ed, 0);
+    u16(ed, entries.length); u16(ed, entries.length);
+    u32(ed, cdSize); u32(ed, offset); u16(ed, 0);
+    var total = offset + cdSize + ed.length;
+    var out = new Uint8Array(total), pos = 0;
+    local.forEach(function (p) { out.set(p, pos); pos += p.length; });
+    central.forEach(function (p) { out.set(p, pos); pos += p.length; });
+    out.set(Uint8Array.from(ed), pos);
+    return out;
+  }
+  return { build: build, crc32: crc32 };
+})();
+
+function downloadBlob(filename, blob) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+}
+function downloadText(filename, text, mime) {
+  downloadBlob(filename, new Blob([text], { type: (mime || 'text/plain;charset=utf-8') }));
+}
+var auditItems = [];
+var auditNameMap = {};
+function auditDownloadManifest(fmt) {
+  if (!auditItems.length) return;
+  var m = window.AssetManifest.build(auditItems, auditNameMap);
+  var base = auditItems.length === 1 ? auditItems[0].name.replace(/\.[^.]+$/, '') : 'delivery';
+  if (fmt === 'json') downloadText(base + '-manifest.json', window.AssetManifest.toJson(m), 'application/json;charset=utf-8');
+  else if (fmt === 'csv') downloadText(base + '-manifest.csv', window.AssetManifest.toCsv(m), 'text/csv;charset=utf-8');
+  else downloadText(base + '-manifest.md', window.AssetManifest.toMarkdown(m), 'text/markdown;charset=utf-8');
+}
+function auditPackageZip() {
+  if (!auditItems.length) return;
+  var m = window.AssetManifest.build(auditItems, auditNameMap);
+  var entries = [];
+  auditItems.forEach(function (it) { if (it.u8) entries.push({ name: it.name, data: it.u8 }); });
+  if (auditNameMap) {
+    auditItems.forEach(function (it) {
+      (it.rep.mediaPaths || []).forEach(function (p) {
+        var bn = p.split(/[\\\/]/).pop().toLowerCase();
+        var f = auditNameMap[bn];
+        if (f) entries.push({ name: 'media/' + f.name, data: null, file: f });
+      });
+    });
+  }
+  entries.push({ name: 'manifest.json', data: new TextEncoder().encode(window.AssetManifest.toJson(m)) });
+  entries.push({ name: 'manifest.md', data: new TextEncoder().encode(window.AssetManifest.toMarkdown(m)) });
+  Promise.all(entries.map(function (e) {
+    if (e.file) return e.file.arrayBuffer().then(function (ab) { e.data = new Uint8Array(ab); return e; });
+    return Promise.resolve(e);
+  })).then(function (resolved) {
+    var zip = window.DeliveryZip.build(resolved);
+    var base = auditItems.length === 1 ? auditItems[0].name.replace(/\.[^.]+$/, '') : 'delivery';
+    downloadBlob(base + '-delivery.zip', new Blob([zip], { type: 'application/zip' }));
+  });
+}
+
 /* ===== 工程体检（独立视图）===== */
 function auditReadOne(f){
   return new Promise(function(done){
@@ -1660,7 +1866,10 @@ function auditRun(fileList, dirMode){
         });
       }
     });
+    auditItems=items;
+    auditNameMap=dirMode?haveNames:{};
     auditRender(items);
+    var bar=$('auditManifestBar'); if(bar) bar.hidden=false;
   });
 }
 function showView(v){
@@ -1685,7 +1894,11 @@ function showView(v){
   var af=$('auditFile'); if(af) af.addEventListener('change', function(e){ auditRun(e.target.files, false); e.target.value=''; });
   var pd=$('auditPickDir'); if(pd) pd.addEventListener('click', function(){ $('auditDir').click(); });
   var ad2=$('auditDir'); if(ad2) ad2.addEventListener('change', function(e){ auditRun(e.target.files, true); e.target.value=''; });
-  var ac=$('auditClear'); if(ac) ac.addEventListener('click', function(){ $('auditReport').innerHTML=''; });
+  var ac=$('auditClear'); if(ac) ac.addEventListener('click', function(){ $('auditReport').innerHTML=''; var bar=$('auditManifestBar'); if(bar) bar.hidden=true; });
+  var mb1=$('auditDlMd'); if(mb1) mb1.addEventListener('click', function(){ auditDownloadManifest('md'); });
+  var mb2=$('auditDlJson'); if(mb2) mb2.addEventListener('click', function(){ auditDownloadManifest('json'); });
+  var mb3=$('auditDlCsv'); if(mb3) mb3.addEventListener('click', function(){ auditDownloadManifest('csv'); });
+  var zb=$('auditZip'); if(zb) zb.addEventListener('click', function(){ auditPackageZip(); });
   showView('downgrader');
 })();
 

@@ -18,8 +18,8 @@
 | `test_v2.py` | 自检脚本（AE 26.x / AEPX），验证 Python 核心库 | 需要 |
 | `test_prproj.js` | **PR 自检**（网页版核心逻辑：gzip / 版本改写 / 自动分派） | 需要 Node |
 | `test_prproj.py` | **PR 自检**（Python 核心库 + 文件级 + 幂等性） | 需要 |
-| `test_scan_assets.py` | **工程体检自检**（Python 核心库，合成样本 28 项） | 需要 |
-| `test_scan_assets.js` | **工程体检自检**（网页版逻辑，与 Python 同套思路，合成样本 20 项） | 需要 Node |
+| `test_scan_assets.py` | **工程体检自检**（Python 核心库，合成样本 51 项，含发包清单 / 打包） | 需要 |
+| `test_scan_assets.js` | **工程体检自检**（网页版逻辑，与 Python 同套思路，合成样本 36 项，含 AssetManifest / ZIP） | 需要 Node |
 
 两个版本（HTML / Python）共用同一套算法，已验证**逐字节输出一致**。
 
@@ -99,6 +99,42 @@ PR 额外支持 **`any`**（或 `1`），即通用兼容兜底。
 `--aggressive` 激进模式（**仅对 AE 生效**）· `--dry-run` 试运行 · `--no-recursive` 不递归
 
 **原文件永远不动**，输出的是副本。
+
+### 生成「发包清单」与自动打包（给协作方）
+
+工程里用到的素材、字体、插件往往是「别人机器上没有」的东西。降级只是第一步，
+真正发给协作方时，你得把**依赖**一并交代清楚。这台机器上的工程体检顺便能做这件事：
+
+```bash
+# 生成「发包清单」：列出全部素材路径 + 字体 + 第三方插件 + 表达式（Markdown）
+python aep_cli.py manifest "D:\proj\demo.prproj"
+python aep_cli.py manifest "D:\proj\demo.aep" --json      # 想要 JSON 也行
+
+# 组装交付文件夹：复制工程（可先降级）+ 本机能找到的素材 + 清单，直接发给协作方
+python aep_cli.py package "D:\proj\demo.prproj" --out "D:\deliver"
+python aep_cli.py package "D:\proj" --out "D:\deliver" --to 2022   # 先降级再打包
+python aep_cli.py package "D:\proj" --out "D:\deliver" --dry-run   # 只看会打包什么
+```
+
+`package` 产出的交付文件夹结构：
+
+```
+deliver/
+├─ demo.prproj            # 工程副本（若带 --to 则是降级后的版本）
+├─ media/                 # 本机能找到的素材（按文件名平铺，缺失的不会复制）
+│  ├─ clip01.mov
+│  └─ bg.png
+├─ manifest.md            # 发包清单（素材 ✅/❌ + 字体 + 插件 + 表达式）
+├─ manifest.json          # 同一份清单的机器可读版
+└─ 交付说明.txt           # 写给协作方的打开前确认清单
+```
+
+> 清单里**标 ❌ 的素材在本机就找不到**（相对链接 / 网络盘 / 没随工程拷贝），
+> 这些必须向发包方补齐，否则协作方打开会缺素材——工具不会假装它们存在。
+
+网页版「工程体检」标签页里也有：**下载清单（Markdown/JSON/CSV）** 与
+**自动打包 ZIP**：选「文件夹…」把素材目录一起选进来，工具会按文件名核对并把能找到的
+素材打进 ZIP（含工程 + `manifest.md/json`），一键交给协作方。
 
 ---
 
@@ -343,6 +379,20 @@ Premiere 两种都能读，所以照原样还回去最安全。
 
 > 匹配按文件名（basename）进行，不依赖完整路径——只要同名文件在所选目录里（含子目录）即可。
 
+### 一键生成「发包清单」/ 自动打包
+
+把依赖整理成交付物，是体检的下一步：
+
+- **网页版**：体检出报告后，下方工具栏可一键 **下载清单（Markdown / JSON / CSV）**，或 **自动打包 ZIP**——
+  点「选择文件夹…」把素材目录一起选进来，工具按文件名核对并把能找到的素材打进 ZIP
+  （含工程 + `manifest.md/json`），直接发给协作方。
+- **命令行**：`python aep_cli.py manifest <工程>` 生成清单；
+  `python aep_cli.py package <工程> --out <目录>` 把工程（可先 `--to` 降级）+ 本机能找到的素材 + 清单
+  复制到交付文件夹。详见「二、命令行版」。
+
+清单会逐条标 ✅/❌：❌ 表示**本机就找不到**该素材（相对链接 / 网络盘 / 没随工程拷贝），
+这些必须向发包方补齐，否则协作方打开会缺素材——工具不会假装它们存在。
+
 ### 重要边界（务必读）
 
 > 工程体检**不是工程软件的权威解析**，而是基于"字符串 + 启发式"的尽力提取。
@@ -407,8 +457,8 @@ node test_prproj.js      # 网页版 PR 核心：gzip / 改写 / 自动分派 / 
 python test_prproj.py    # Python PR 核心 + 文件级 + 风险等级 + 幂等        73 项
 
 # 工程体检（资产扫描）
-node test_scan_assets.js # 网页版体检逻辑：第三方插件 / 字体 / 素材 / 表达式   20 项
-python test_scan_assets.py # Python 体检核心库（合成样本）                 28 项
+node test_scan_assets.js # 网页版体检 + AssetManifest + 纯 JS ZIP         36 项
+python test_scan_assets.py # Python 体检核心库 + 发包清单 + 打包          51 项
 ```
 
 AE 覆盖：位域解码与合成、AEP/FFX/AEPX 定位、字节级差异、中文偏移正确性、
@@ -421,10 +471,13 @@ PR 覆盖：gzip 解包与回包、纯 XML 与压缩两种情况、`<Project>` �
 
 工程体检覆盖：ASCII + UTF-16LE 双路字符串提取、AE 二进制 / PR XML / AEPX 三类载体、
 第三方插件关键词命中、字体（关键词 + `<Font>` 标签）、素材路径（Windows 绝对 / 类 Unix 相对）、
-表达式特征、ADBE 内置效果名、错误分支（未知类型不崩溃）、报告文本生成。
+表达式特征、ADBE 内置效果名、错误分支（未知类型不崩溃）、报告文本生成，
+以及 **发包清单**（build_manifest 素材存在性判定 + Markdown/JSON/CSV 序列化）与
+**自动打包**（package_project 复制工程 + 能找到的素材 + 清单到交付文件夹）。
+
 网页版与 Python 版用同一套合成样本验证、**结果一致**。
 
-当前 **276 项全部通过**，且网页版与 Python 版**逐字节输出一致**。
+当前 **315 项全部通过**（Node 143 + Python 172），且网页版与 Python 版**逐字节输出一致**。
 
 ---
 
