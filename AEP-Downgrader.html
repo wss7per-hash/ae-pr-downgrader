@@ -1560,6 +1560,84 @@ function toggleAsset(idx){
   return { scan: scanAssetsJS, html: assetHtml, toggle: toggleAsset };
 })();
 
+/* ===== 工程体检（独立视图）===== */
+function auditReadOne(f){
+  return new Promise(function(done){
+    var rd=new FileReader();
+    rd.onload=function(){
+      var u8=new Uint8Array(rd.result);
+      scanAny(u8, f.name).then(function(res){
+        var rep=window.AssetScan.scan(u8, res, f.name);
+        done({name:f.name, rel:(f.webkitRelativePath||f.name), u8:u8, res:res, rep:rep, missing:[]});
+      }).catch(function(err){
+        var rep=window.AssetScan.scan(u8, {ok:false, ftype:'unknown', error:String(err)}, f.name);
+        done({name:f.name, rel:f.name, u8:u8, res:{ok:false}, rep:rep, missing:[]});
+      });
+    };
+    rd.onerror=function(){ done(null); };
+    rd.readAsArrayBuffer(f);
+  });
+}
+function auditRender(items){
+  if(!items.length){ $('auditReport').innerHTML='<div class="empty">没有 .aep / .ffx / .aepx / .prproj 文件</div>'; return; }
+  var html='';
+  items.forEach(function(it){
+    var inner=window.AssetScan.html(it.rep);
+    if(it.missing && it.missing.length){
+      inner+='<div class="asset-row"><span class="asset-k">疑似缺失素材</span><span class="asset-v">'+
+        it.missing.slice(0,20).map(function(x){ return '<span class="chip warn">'+esc(x)+'</span>'; }).join('')+'</span></div>';
+    } else if(it.rep.mediaPaths && it.rep.mediaPaths.length){
+      inner+='<div class="asset-row"><span class="asset-k">素材核对</span><span class="asset-v dim">所选目录内均可找到对应文件</span></div>';
+    }
+    html+='<div class="asset-card" style="margin-top:14px"><div class="asset-head">'+esc(it.name)+
+      '　<span class="dim">'+(it.rep.versionLabel||'')+'</span></div>'+inner+'</div>';
+  });
+  $('auditReport').innerHTML=html;
+}
+function auditRun(fileList, dirMode){
+  var arr=Array.prototype.slice.call(fileList).filter(function(f){ return /\.(aep|ffx|aepx|prproj)$/i.test(f.name); });
+  if(!arr.length){ $('auditReport').innerHTML='<div class="empty">没有 .aep / .ffx / .aepx / .prproj 文件</div>'; return; }
+  var haveNames={};
+  if(dirMode){ Array.prototype.slice.call(fileList).forEach(function(f){ haveNames[f.name.toLowerCase()]=1; }); }
+  Promise.all(arr.map(auditReadOne)).then(function(items){
+    items=items.filter(Boolean);
+    items.forEach(function(it){
+      if(dirMode && it.rep.mediaPaths){
+        it.rep.mediaPaths.forEach(function(p){
+          var bn=p.split(/[\\\/]/).pop().toLowerCase();
+          if(bn && !haveNames[bn]) it.missing.push(p);
+        });
+      }
+    });
+    auditRender(items);
+  });
+}
+function showView(v){
+  Array.prototype.slice.call(document.querySelectorAll('[data-view]')).forEach(function(el){
+    el.hidden = el.getAttribute('data-view')!==v;
+  });
+  Array.prototype.slice.call(document.querySelectorAll('.tab')).forEach(function(b){
+    if(b.getAttribute('data-tab')===v) b.classList.add('active'); else b.classList.remove('active');
+  });
+}
+(function bindAudit(){
+  Array.prototype.slice.call(document.querySelectorAll('.tab')).forEach(function(b){
+    b.addEventListener('click', function(){ showView(b.getAttribute('data-tab')); });
+  });
+  var ad=$('auditDrop');
+  if(ad){
+    ['dragenter','dragover'].forEach(function(ev){ ad.addEventListener(ev,function(e){ e.preventDefault(); ad.classList.add('drag'); }); });
+    ['dragleave','drop'].forEach(function(ev){ ad.addEventListener(ev,function(e){ e.preventDefault(); ad.classList.remove('drag'); }); });
+    ad.addEventListener('drop', function(e){ if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) auditRun(e.dataTransfer.files, false); });
+  }
+  var pf=$('auditPick'); if(pf) pf.addEventListener('click', function(){ $('auditFile').click(); });
+  var af=$('auditFile'); if(af) af.addEventListener('change', function(e){ auditRun(e.target.files, false); e.target.value=''; });
+  var pd=$('auditPickDir'); if(pd) pd.addEventListener('click', function(){ $('auditDir').click(); });
+  var ad2=$('auditDir'); if(ad2) ad2.addEventListener('change', function(e){ auditRun(e.target.files, true); e.target.value=''; });
+  var ac=$('auditClear'); if(ac) ac.addEventListener('click', function(){ $('auditReport').innerHTML=''; });
+  showView('downgrader');
+})();
+
 function updRisk(){
   var sel=$('target');
   if(!sel.value){ $('risk').textContent='—'; $('risk').className='tag t-gray'; return; }
