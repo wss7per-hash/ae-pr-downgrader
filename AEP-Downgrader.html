@@ -1784,10 +1784,13 @@ function downloadBlob(filename, blob) {
   if (window.showSaveFilePicker && typeof blob.stream === 'function') {
     var ext = filename.split('.').pop().toLowerCase();
     var mime = blob.type || 'application/octet-stream';
+    // showSaveFilePicker 的 accept 键只需要 MIME 主类型（不要 charset 等参数），
+    // 否则某些环境会直接静默失败。
+    var acceptKey = (mime.split(';')[0] || 'application/octet-stream').trim();
     var opts = { suggestedName: filename };
-    if (mime) {
+    if (acceptKey) {
       var accept = {};
-      accept[mime] = ['.' + (ext || 'bin')];
+      accept[acceptKey] = ['.' + (ext || 'bin')];
       opts.types = [{ description: (ext ? ext.toUpperCase() : 'File') + ' file', accept: accept }];
     }
     showSaveFilePicker(opts)
@@ -1944,7 +1947,11 @@ function showView(v){
     }
   });
   var ob=$('auditOpenBrowser'); if(ob) ob.addEventListener('click', function(){
-    window.open(location.href, '_blank');
+    // 内置预览的 location.href 可能是 about:blank，直接打开在线版最稳
+    var pageUrl = 'https://wss7per-hash.github.io/ae-pr-downgrader/';
+    var opened = window.open(pageUrl, '_blank');
+    // 如果弹窗被拦截，至少把地址暴露给用户
+    if(!opened) prompt('请复制以下地址到浏览器打开', pageUrl);
   });
   showView('downgrader');
 })();
